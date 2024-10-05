@@ -1,0 +1,23 @@
+---
+title: MoQ SharePlay
+---
+
+import Watch from "@/components/watch.tsx";
+
+<style jsx global>{`
+  body {
+    background-color: white;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    margin: 0;
+  }
+  .watch-container {
+    align-items: center;
+  }
+`}</style>
+
+<div class="watch-container">
+  <Watch name="bbb" client:only/>
+</div>
