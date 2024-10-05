@@ -1,0 +1,51 @@
+/// <reference types="vite/client" />
+
+import * as Message from "./worker/message"
+
+// This is a non-standard way of importing worklet/workers.
+// Unfortunately, it's the only option because of a Vite bug: https://github.com/vitejs/vite/issues/11823
+import workletURL from "./worklet/index.ts?worker&url"
+
+// NOTE: This must be on the main thread
+export class Audio {
+	context: AudioContext
+	worklet: Promise<AudioWorkletNode>
+	volumeNode: GainNode
+
+	constructor(config: Message.ConfigAudio) {
+		this.context = new AudioContext({
+			latencyHint: "interactive",
+			sampleRate: config.sampleRate,
+		})
+		this.volumeNode = this.context.createGain()
+		this.volumeNode.gain.value = 2.0
+		this.worklet = this.load(config)
+	}
+
+	private async load(config: Message.ConfigAudio): Promise<AudioWorkletNode> {
+		// Load the worklet source code.
+		await this.context.audioWorklet.addModule(workletURL)
+		// Create the worklet
+		const worklet = new AudioWorkletNode(this.context, "renderer")
+		worklet.port.addEventListener("message", this.on.bind(this))
+		worklet.onprocessorerror = (e: Event) => {
+			console.error("Audio worklet error:", e)
+		}
+
+		// Connect the worklet to the volume node and then to the speakers
+		worklet.connect(this.volumeNode)
+		this.volumeNode.connect(this.context.destination)
+
+		worklet.port.postMessage({ config })
+
+		return worklet
+	}
+
+	setVolume(level: number) {
+		this.volumeNode.gain.value = level
+	}
+
+	private on(_event: MessageEvent) {
+		// TODO
+	}
+}

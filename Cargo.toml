@@ -1,0 +1,22 @@
+[workspace]
+members = [
+	"repos/moq-rs/moq-transport",
+	"repos/moq-rs/moq-relay",
+	"repos/moq-rs/moq-pub",
+	"repos/moq-rs/moq-sub",
+	"repos/moq-rs/moq-api",
+	"repos/moq-rs/moq-clock",
+	"repos/moq-rs/moq-dir",
+	"repos/moq-rs/moq-native",
+	"repos/moq-rs/moq-catalog",
+]
+resolver = "2"
+
+[workspace.dependencies]
+web-transport = "0.3"
+env_logger = "0.11"
+log = { version = "0.4", features = ["std"] }
+
+# Use debug symbols in production until things are more stable
+[profile.release]
+debug = true
