@@ -60,7 +60,9 @@ export default function Watch(props: { name: string }) {
 	return (
 		<>
 			<canvas ref={canvas} onClick={play}/>
-			<input
+			<div class="volume-control">
+      <label>Volume</label>
+      <input
 				id="volume"
 				type="range"
 				min="0"
@@ -68,6 +70,8 @@ export default function Watch(props: { name: string }) {
 				value={volume()}
 				onInput={changeVolume}
 			/>
+    </div>
+
 		</>
 	)
 }
