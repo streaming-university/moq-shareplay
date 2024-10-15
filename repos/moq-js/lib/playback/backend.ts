@@ -67,6 +67,12 @@ export default class Backend {
 		this.send({ config: msg }, msg.video.canvas)
 	}
 
+	setVolume(level: number) {
+		if (this.#audio) {
+			this.#audio.setVolume(level)
+		}
+	}
+
 	async play() {
 		await this.#audio?.context.resume()
 	}

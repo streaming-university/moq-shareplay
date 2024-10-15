@@ -15,6 +15,7 @@ export default function Watch(props: { name: string }) {
 
 	const [usePlayer, setPlayer] = createSignal<Player | undefined>()
 	const [showCatalog, setShowCatalog] = createSignal(false)
+	const [volume, setVolume] = createSignal(50)
 
 	createEffect(() => {
 		const namespace = props.name
@@ -26,6 +27,12 @@ export default function Watch(props: { name: string }) {
 
 		Player.create({ url, fingerprint, canvas, namespace }).then(setPlayer).catch(setError)
 	})
+
+	const changeVolume = (event: Event) => {
+		const volumeValue = (event.target as HTMLInputElement).value
+		setVolume(Number(volumeValue)) // Update the signal
+		usePlayer()?.setVolume(Number(volumeValue) / 100) // Adjust the player's volume
+	}
 
 	createEffect(() => {
 		const player = usePlayer()
@@ -53,6 +60,14 @@ export default function Watch(props: { name: string }) {
 	return (
 		<>
 			<canvas ref={canvas} onClick={play}/>
+			<input
+				id="volume"
+				type="range"
+				min="0"
+				max="100"
+				value={volume()}
+				onInput={changeVolume}
+			/>
 		</>
 	)
 }
