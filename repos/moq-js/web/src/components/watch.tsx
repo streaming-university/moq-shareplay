@@ -46,6 +46,14 @@ export default function Watch(props: { name: string }) {
 		usePlayer()?.play().catch(setError)
 	}
 
+	const pause = () => {
+		usePlayer()?.pause().catch(setError);
+	};
+
+	const handleContinue = () => {
+		usePlayer()?.resubscribe().catch(setError);
+	  };
+
 	// The JSON catalog for debugging.
 	const catalog = createMemo(() => {
 		const player = usePlayer()
@@ -59,19 +67,27 @@ export default function Watch(props: { name: string }) {
 	// TODO shrink it if needed via CSS
 	return (
 		<>
-			<canvas ref={canvas} onClick={play}/>
-			<div class="volume-control">
-      <label>Volume</label>
-      <input
-				id="volume"
-				type="range"
-				min="0"
-				max="100"
-				value={volume()}
-				onInput={changeVolume}
-			/>
-    </div>
+		  <canvas ref={canvas} onClick={play} />
 
+		  <div class="volume-control">
+			<label>Volume</label>
+			<input
+			  id="volume"
+			  type="range"
+			  min="0"
+			  max="100"
+			  value={volume()}
+			  onInput={changeVolume}
+			/>
+		  </div>
+
+		  <div class="controls">
+			<button class="controls-button" onClick={pause}>Pause</button>
+		  </div>
+
+		  <div class="controls">
+			<button class="controls-button" onClick={handleContinue}>Continue</button>
+		  </div>
 		</>
-	)
+	  )
 }

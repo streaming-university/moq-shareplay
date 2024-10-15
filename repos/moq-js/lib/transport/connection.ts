@@ -76,6 +76,10 @@ export class Connection {
 		}
 	}
 
+	async unsubscribe(namespace: string, track: string) {
+		await this.#subscriber.unsubscribe(namespace, track)
+	}
+
 	async #recv(msg: Control.Message) {
 		if (Control.isPublisher(msg)) {
 			await this.#subscriber.recv(msg)

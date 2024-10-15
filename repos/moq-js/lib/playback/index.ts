@@ -164,6 +164,39 @@ export class Player {
 		}
 	}
 
+	async pause() {
+		try {
+			// Unsubscribe from all tracks in the catalog
+			for (const track of this.#catalog.tracks) {
+				if (!track.namespace) throw new Error("Track has no namespace")
+
+				await this.#connection.unsubscribe(track.namespace, track.name)
+			}
+
+			await this.#backend.pause()
+
+			console.log("Playback paused and unsubscribed from tracks")
+		} catch (error) {
+			console.error(error)
+		}
+	}
+
+	async resubscribe() {
+		try {
+			// Resubscribe to all tracks concurrently
+			const reSubscriptions = this.#catalog.tracks.map(async (track) => {
+				if (!track.namespace) throw new Error("track namespace is missing")
+				await this.#runTrack(track)
+			})
+
+			await Promise.all(reSubscriptions)
+			await this.#backend.play()
+
+			console.log("Resubscribed to tracks and playback resumed")
+		} catch (error) {
+			console.error("Error while resubscribing to the tracks:", error)
+		}
+	}
 	/*
 	play() {
 		this.#backend.play({ minBuffer: 0.5 }) // TODO configurable

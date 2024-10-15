@@ -80,6 +80,25 @@ export class Subscriber {
 		return subscribe
 	}
 
+	async unsubscribe(namespace: string, track: string) {
+		// Find the subscription for the given namespace and track
+		for (const [id, subscribe] of this.#subscribe) {
+			if (subscribe.namespace === namespace && subscribe.track === track) {
+				// Send the Unsubscribe message
+				await this.#control.send({
+					kind: Control.Msg.Unsubscribe,
+					id: id,
+				})
+
+				this.#subscribe.delete(id)
+				console.log(`Unsubscribed from track: ${track} in namespace: ${namespace}`)
+				return
+			}
+		}
+
+		console.warn(`No subscription found for track: ${track} in namespace: ${namespace}`)
+	}
+
 	recvSubscribeOk(msg: Control.SubscribeOk) {
 		const subscribe = this.#subscribe.get(msg.id)
 		if (!subscribe) {
@@ -101,7 +120,10 @@ export class Subscriber {
 	async recvSubscribeDone(msg: Control.SubscribeDone) {
 		const subscribe = this.#subscribe.get(msg.id)
 		if (!subscribe) {
-			throw new Error(`subscribe error for unknown id: ${msg.id}`)
+			// This used to throw an error, causing fatal error, now it logs a warning and
+			// this way I can do resubscription later on.
+			console.warn(`Received subscribe_done for unknown id: ${msg.id}`)
+			return
 		}
 
 		await subscribe.onError(msg.code, msg.reason)

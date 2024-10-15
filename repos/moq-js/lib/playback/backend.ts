@@ -67,6 +67,10 @@ export default class Backend {
 		this.send({ config: msg }, msg.video.canvas)
 	}
 
+	async pause() {
+		// TODO Worker should alse be aware of pause operation and do the needed stuff.
+	}
+
 	setVolume(level: number) {
 		if (this.#audio) {
 			this.#audio.setVolume(level)
