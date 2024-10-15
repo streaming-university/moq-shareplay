@@ -1,4 +1,10 @@
-# Setup (Docker is not integrated yet)
+# Prerequisites
+- Rust
+- Go (for certificate creation)
+- Ffmpeg
+- Node.js (npm, TypeScript, JavaScript)
+
+# Installation & Setup
 ## moq-js (web)
 ```
 cd repos/moq-js; npm install
