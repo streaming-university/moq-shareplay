@@ -14,7 +14,7 @@ use tokio::fs::File;
 use bytes::Bytes;
 use std::fs;
 use std::path::PathBuf;
-use tokio::time::{sleep, Duration};
+use tokio::time::{Instant, sleep, Duration};
 
 
 #[derive(Parser, Clone)]
@@ -126,48 +126,63 @@ async fn run_media(mut media: Media) -> anyhow::Result<()> {
     media.read_atoms_directly(atoms)?;
 
     // TODO: Batch_size and batch_delay should be configured correctly for a smoother playback & no audio packet loss.
-    let batch_size = 4; // Number of frames per batch
-    let batch_delay = Duration::from_millis(54); // delay between batches
+    let batch_size = 1; // Number of frame per batch.
+	let target_fps = 80.0; // Should be higher than requested FPS because there will be a drop during the playback.
+	let frame_delay = Duration::from_secs_f64(1.0 / target_fps);
+	let batch_delay = frame_delay * batch_size as u32; // Total delay per batch
 
-    let mut frame_index = 0;
-    while frame_index < frame_atoms.len() {
-        let mut batch = Vec::new();
+	let mut frame_index = 0;
+	let start_time = Instant::now(); // Will be used for calculating the current FPS.
+	let mut total_frames = 0;
 
-        // Collect a batch of frames
-        for _ in 0..batch_size {
-            if frame_index + 1 < frame_atoms.len() && frame_atoms[frame_index].file_name().unwrap().to_str().unwrap().contains("moof") {
-                let mut frame_pair = Vec::new();
+	while frame_index < frame_atoms.len() {
+    	let mut batch = Vec::new();
 
-                for offset in 0..2 {
-                    if frame_index + offset < frame_atoms.len() {
-                        let mut file = File::open(&frame_atoms[frame_index + offset]).await.context("Failed to open frame atom file")?;
-                        let mut atom_data = Vec::new();
-                        file.read_to_end(&mut atom_data).await.context("Failed to read frame atom file")?;
-                        frame_pair.push(Bytes::from(atom_data));
-                    }
-                }
-                batch.push(frame_pair);
-                frame_index += 2;
-            } else {
-                frame_index += 1;  // if an unpaired atom is encountered, skip it ( avoiding multiple moof and multiple mdat errors.)
-            }
-        }
+    // Collect a batch of frames
+    	for _ in 0..batch_size {
+        	if frame_index + 1 < frame_atoms.len() && frame_atoms[frame_index].file_name().unwrap().to_str().unwrap().contains("moof") {
+            	let mut frame_pair = Vec::new();
 
-        // The media should be playing from the batch at all times.
-        for frame_pair in batch {
-            media.read_atoms_directly(frame_pair)?;
-        }
+            	for offset in 0..2 {
+                	if frame_index + offset < frame_atoms.len() {
+                    	let mut file = File::open(&frame_atoms[frame_index + offset]).await.context("Failed to open frame atom file")?;
+                    	let mut atom_data = Vec::new();
+                    	file.read_to_end(&mut atom_data).await.context("Failed to read frame atom file")?;
+                    	frame_pair.push(Bytes::from(atom_data));
+                	}
+            	}
+            	batch.push(frame_pair);
+            	frame_index += 2;
+            	total_frames += 1;
+        	} else {
+            	frame_index += 1;
+				total_frames += 1;
+        	}
+    	}
 
-		// Added delay to slow down playback speed ( it is much much faster than we need if we don't add this line.)
-        tokio::time::sleep(batch_delay).await;
+    // The media should be playing from the batch at all times.
+    for frame_pair in batch {
+        media.read_atoms_directly(frame_pair)?;
     }
+
+    // Logging the calculated FPS.
+    let elapsed = start_time.elapsed().as_secs_f64();
+    let fps = total_frames as f64 / elapsed;
+	println!("Current Elapsed: {:.2}", elapsed);
+	println!("Total Frames Sent: {:.2}", total_frames);
+	println!("Current FPS: {:.2}", fps);
+
+    // Added delay to slow down playback speed.
+    tokio::time::sleep(batch_delay).await;
+}
 
     Ok(())
 }
 
 
+
 // TODO: This method is saving the atoms currently, it should be configured so that we can save the atoms without playing the video itself.
-async fn run_media_lukes_method(mut media: Media) -> anyhow::Result<()> {
+async fn run_media_lukesMethod(mut media: Media) -> anyhow::Result<()> {
 	let dir = "/Users/keremsmacbook/Desktop/42/Research/Media Over QUIC/code/shareplay-moq/repos/moq-rs/atoms";
 	let mut input = tokio::io::stdin();
 	let mut buf = BytesMut::new();
