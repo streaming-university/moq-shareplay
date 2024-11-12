@@ -127,7 +127,7 @@ async fn run_media(mut media: Media) -> anyhow::Result<()> {
 
     // TODO: Batch_size and batch_delay should be configured correctly for a smoother playback & no audio packet loss.
     let batch_size = 1; // Number of frame per batch.
-	let target_fps = 80.0; // Should be higher than requested FPS because there will be a drop during the playback.
+	let target_fps = 86.0; // Should be higher than requested FPS because there will be a drop during the playback.
 	let frame_delay = Duration::from_secs_f64(1.0 / target_fps);
 	let batch_delay = frame_delay * batch_size as u32; // Total delay per batch
 
@@ -182,7 +182,8 @@ async fn run_media(mut media: Media) -> anyhow::Result<()> {
 
 
 // TODO: This method is saving the atoms currently, it should be configured so that we can save the atoms without playing the video itself.
-async fn run_media_lukesMethod(mut media: Media) -> anyhow::Result<()> {
+// TODO: IMPORTANT: Luke sends 66.5 frame's per second, not the init frame but 66.5 (moof + mdat)'s.
+async fn run_media_old(mut media: Media) -> anyhow::Result<()> {
 	let dir = "/Users/keremsmacbook/Desktop/42/Research/Media Over QUIC/code/shareplay-moq/repos/moq-rs/atoms";
 	let mut input = tokio::io::stdin();
 	let mut buf = BytesMut::new();

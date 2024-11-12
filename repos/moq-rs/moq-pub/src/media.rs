@@ -6,6 +6,7 @@ use std::cmp::max;
 use std::collections::HashMap;
 use std::io::Cursor;
 use std::time;
+use std::time::Instant;
 use chrono::Utc;
 use std::{fs::File, io::Write, path::Path};
 
@@ -124,10 +125,15 @@ impl Media {
 	}
 
 	fn parse_atom<B: Buf>(&mut self, buf: &mut B) -> anyhow::Result<bool> {
+
+		let mut total_atoms: i32 = 0;
 		let atom = match next_atom(buf)? {
 			Some(atom) => atom,
 			None => return Ok(false),
 		};
+		total_atoms += 1 as i32;
+
+
 
 		let mut reader = Cursor::new(&atom);
 		let header = mp4::BoxHeader::read(&mut reader)?;
@@ -136,6 +142,9 @@ impl Media {
 		// Generate a filename based on the atom type and timestamp.
 		//let filename = format!("{}_{}.bin", self.count, header.name.to_string());
         self.count += 1;
+		let now	 = Utc::now();
+    	println!("{}", now.format("%H.%M.%S"));
+		println!("Total File Count is: {}", self.count);
 		// Save the atom to disk.
 		//self.save_atom_to_disk(&filename, &atom)?;
 
