@@ -4,6 +4,8 @@ set -euo pipefail
 # Change directory to the root of the project
 cd "$(dirname "$0")/.."
 
+mkdir -p atoms
+
 # Download the Big Buck Bunny video if it doesn't exist
 if [ ! -f dev/bbb.fmp4 ]; then
 	if [ ! -f dev/bbb.mp4 ]; then

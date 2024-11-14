@@ -1,5 +1,6 @@
 use anyhow::{self, Context};
 use bytes::{Buf, Bytes};
+use chrono::Utc;
 use moq_transport::serve::{GroupWriter, GroupsWriter, TrackWriter, TracksWriter};
 use mp4::{self, ReadBox, TrackType};
 use std::cmp::max;
@@ -7,7 +8,6 @@ use std::collections::HashMap;
 use std::io::Cursor;
 use std::time;
 use std::time::Instant;
-use chrono::Utc;
 use std::{fs::File, io::Write, path::Path};
 
 pub struct Media {
@@ -54,68 +54,69 @@ impl Media {
 	}
 
 	pub fn parse_atom_directly(&mut self, atom: Bytes) -> anyhow::Result<bool> {
-        let mut reader = Cursor::new(&atom);
-        let header = mp4::BoxHeader::read(&mut reader)?;
+		let mut reader = Cursor::new(&atom);
+		let header = mp4::BoxHeader::read(&mut reader)?;
 
-        // Process the atom based on its type
-        match header.name {
-            mp4::BoxType::FtypBox => {
-                if self.ftyp.is_some() {
-                    tracing::debug!("Multiple ftyp atoms");
-                    return Ok(true);
-                }
-                self.ftyp = Some(atom); // Store the 'ftyp' atom
-            }
-            mp4::BoxType::MoovBox => {
-                if self.moov.is_some() {
-                    tracing::debug!("Multiple moov atoms");
-                    return Ok(true);
-                }
-                let moov = mp4::MoovBox::read_box(&mut reader, header.size)?;
-                self.setup(&moov, atom)?;
-                self.moov = Some(moov);
-            }
-            mp4::BoxType::MoofBox => {
-                let moof = mp4::MoofBox::read_box(&mut reader, header.size)?;
-                let fragment = Fragment::new(moof)?;
+		// Process the atom based on its type
+		match header.name {
+			mp4::BoxType::FtypBox => {
+				if self.ftyp.is_some() {
+					tracing::debug!("Multiple ftyp atoms");
+					return Ok(true);
+				}
+				self.ftyp = Some(atom); // Store the 'ftyp' atom
+			}
+			mp4::BoxType::MoovBox => {
+				if self.moov.is_some() {
+					tracing::debug!("Multiple moov atoms");
+					return Ok(true);
+				}
+				let moov = mp4::MoovBox::read_box(&mut reader, header.size)?;
+				self.setup(&moov, atom)?;
+				self.moov = Some(moov);
+			}
+			mp4::BoxType::MoofBox => {
+				let moof = mp4::MoofBox::read_box(&mut reader, header.size)?;
+				let fragment = Fragment::new(moof)?;
 
-                if fragment.keyframe {
-                    if self
-                        .tracks
-                        .get(&fragment.track)
-                        .context("failed to find track")?
-                        .handler == TrackType::Video
-                    {
-                        for track in self.tracks.values_mut() {
-                            track.end_group();
-                        }
-                    }
-                }
+				if fragment.keyframe {
+					if self
+						.tracks
+						.get(&fragment.track)
+						.context("failed to find track")?
+						.handler == TrackType::Video
+					{
+						for track in self.tracks.values_mut() {
+							track.end_group();
+						}
+					}
+				}
 
-                let track = self.tracks.get_mut(&fragment.track).context("failed to find track")?;
-                anyhow::ensure!(self.current.is_none(), "multiple moof atoms");
-                self.current.replace(fragment.track);
-                track.header(atom, fragment).context("failed to publish moof")?;
-            }
-            mp4::BoxType::MdatBox => {
-                let track = self.current.take().context("missing moof")?;
-                let track = self.tracks.get_mut(&track).context("failed to find track")?;
-                track.data(atom).context("failed to publish mdat")?;
-            }
-            _ => {
-                tracing::debug!("Skipping unknown atom: {:?}", header.name);
-            }
-        }
+				let track = self.tracks.get_mut(&fragment.track).context("failed to find track")?;
+				anyhow::ensure!(self.current.is_none(), "multiple moof atoms");
+				self.current.replace(fragment.track);
+				track.header(atom, fragment).context("failed to publish moof")?;
+			}
+			mp4::BoxType::MdatBox => {
+				let track = self.current.take().context("missing moof")?;
+				let track = self.tracks.get_mut(&track).context("failed to find track")?;
+				track.data(atom).context("failed to publish mdat")?;
+			}
+			_ => {
+				tracing::debug!("Skipping unknown atom: {:?}", header.name);
+			}
+		}
 
-        Ok(true)
-    }
+		Ok(true)
+	}
 
 	pub fn read_atoms_directly(&mut self, atoms: Vec<Bytes>) -> anyhow::Result<()> {
-        for atom in atoms {
-            self.parse_atom_directly(atom)?;
-        }
-        Ok(())
-    }
+		for atom in atoms {
+			self.parse_atom_directly(atom)?;
+		}
+		Ok(())
+	}
+
 	// Parse the input buffer, reading any full atoms we can find.
 	// Keep appending more data and calling parse.
 	//TODO: This two methods below should be reconfigured so that it only saves the atoms and that is their only job.
@@ -125,7 +126,6 @@ impl Media {
 	}
 
 	fn parse_atom<B: Buf>(&mut self, buf: &mut B) -> anyhow::Result<bool> {
-
 		let mut total_atoms: i32 = 0;
 		let atom = match next_atom(buf)? {
 			Some(atom) => atom,
@@ -133,21 +133,17 @@ impl Media {
 		};
 		total_atoms += 1 as i32;
 
-
-
 		let mut reader = Cursor::new(&atom);
 		let header = mp4::BoxHeader::read(&mut reader)?;
 
-
 		// Generate a filename based on the atom type and timestamp.
-		//let filename = format!("{}_{}.bin", self.count, header.name.to_string());
-        self.count += 1;
-		let now	 = Utc::now();
-    	println!("{}", now.format("%H.%M.%S"));
+		let filename = format!("{}_{}.bin", self.count, header.name.to_string());
+		self.count += 1;
+		let now = Utc::now();
+		println!("{}", now.format("%H.%M.%S"));
 		println!("Total File Count is: {}", self.count);
 		// Save the atom to disk.
-		//self.save_atom_to_disk(&filename, &atom)?;
-
+		self.save_atom_to_disk(&filename, &atom)?;
 
 		match header.name {
 			mp4::BoxType::FtypBox => {
@@ -202,7 +198,7 @@ impl Media {
 	}
 
 	fn save_atom_to_disk(&self, filename: &str, data: &[u8]) -> anyhow::Result<()> {
-		let path = Path::new("atoms").join(filename);  // Save under 'atoms/' directory
+		let path = Path::new("atoms").join(filename); // Save under 'atoms/' directory
 
 		// Ensure the directory exists
 		if let Some(parent) = path.parent() {
