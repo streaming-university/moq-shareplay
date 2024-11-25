@@ -175,9 +175,9 @@ async fn run_media(mut media: Media) -> anyhow::Result<()> {
 		// Logging the calculated FPS.
 		let elapsed = start_time.elapsed().as_secs_f64();
 		let fps = total_frames as f64 / elapsed;
-		println!("Current Elapsed: {:.2}", elapsed);
-		println!("Total Frames Sent: {:.2}", total_frames);
-		println!("Current FPS: {:.2}", fps);
+		// println!("Current Elapsed: {:.2}", elapsed);
+		// println!("Total Frames Sent: {:.2}", total_frames);
+		// println!("Current FPS: {:.2}", fps);
 
 		// Added delay to slow down playback speed.
 		tokio::time::sleep(batch_delay).await;

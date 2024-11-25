@@ -35,6 +35,14 @@ export class Connection {
 		this.#running = this.#run()
 	}
 
+	getObjects(): Objects {
+		return this.#objects
+	}
+
+	getQuic(): WebTransport {
+		return this.#quic
+	}
+
 	close(code = 0, reason = "") {
 		this.#quic.close({ closeCode: code, reason })
 	}

@@ -50,7 +50,7 @@ export class Player {
 	}
 
 	static async create(config: PlayerConfig): Promise<Player> {
-		const client = new Client({ url: config.url, fingerprint: config.fingerprint, role: "subscriber" })
+		const client = new Client({ url: config.url, fingerprint: config.fingerprint, role: "both" })
 		const connection = await client.connect()
 
 		const catalog = await Catalog.fetch(connection, config.namespace)
@@ -61,9 +61,15 @@ export class Player {
 
 		return new Player(connection, catalog, backend)
 	}
+
+	getConnection(): Connection {
+		return this.#connection
+	}
+
 	setVolume(level: number) {
 		this.#backend.setVolume(level)
 	}
+
 	async #run() {
 		const inits = new Set<[string, string]>()
 		const tracks = new Array<Catalog.Track>()
