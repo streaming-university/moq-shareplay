@@ -60,6 +60,29 @@ export class Subscriber {
 		throw new Error(`TODO Unannounce`)
 	}
 
+	async subscribeAbsoluteStart(namespace: string, track: string, startGroup: number, startObject: number)
+	{
+		const id = this.#subscribeNext++;
+
+    	const subscribe = new SubscribeSend(this.#control, id, namespace, track);
+    	this.#subscribe.set(id, subscribe);
+
+    	await this.#control.send({
+        	kind: Control.Msg.Subscribe,
+        	id,
+        	trackId: id,
+        	namespace,
+        	name: track,
+        	location: {
+	            mode: "absolute_start",
+    	        start_group: startGroup,
+        	    start_object: startObject,
+        	},
+    	});
+
+		console.log("Sent subscription request:", { startGroup, startObject });
+    	return subscribe;
+	}
 	async subscribe(namespace: string, track: string) {
 		const id = this.#subscribeNext++
 
@@ -74,10 +97,31 @@ export class Subscriber {
 			name: track,
 			location: {
 				mode: "latest_group",
+				//start_group: 2,
+				//start_object: 0
 			},
 		})
 
 		return subscribe
+	}
+
+	async unsubscribe(namespace: string, track: string) {
+		// Find the subscription for the given namespace and track
+		for (const [id, subscribe] of this.#subscribe) {
+			if (subscribe.namespace === namespace && subscribe.track === track) {
+				// Send the Unsubscribe message
+				await this.#control.send({
+					kind: Control.Msg.Unsubscribe,
+					id: id,
+				})
+
+				this.#subscribe.delete(id)
+				console.log(`Unsubscribed from track: ${track} in namespace: ${namespace}`)
+				return
+			}
+		}
+
+		console.warn(`No subscription found for track: ${track} in namespace: ${namespace}`)
 	}
 
 	recvSubscribeOk(msg: Control.SubscribeOk) {
@@ -101,7 +145,10 @@ export class Subscriber {
 	async recvSubscribeDone(msg: Control.SubscribeDone) {
 		const subscribe = this.#subscribe.get(msg.id)
 		if (!subscribe) {
-			throw new Error(`subscribe error for unknown id: ${msg.id}`)
+			// This used to throw an error, causing fatal error, now it logs a warning and
+			// this way I can do resubscription later on.
+			console.warn(`Received subscribe_done for unknown id: ${msg.id}`)
+			return
 		}
 
 		await subscribe.onError(msg.code, msg.reason)
@@ -154,6 +201,9 @@ export class SubscribeSend {
 	readonly namespace: string
 	readonly track: string
 
+	currentGroup: number = 0
+	currentObject: number = 0
+
 	// A queue of received streams for this subscription.
 	#data = new Queue<TrackReader | GroupReader | ObjectReader>()
 
@@ -187,8 +237,12 @@ export class SubscribeSend {
 	}
 
 	async onData(reader: TrackReader | GroupReader | ObjectReader) {
-		if (!this.#data.closed()) await this.#data.push(reader)
-	}
+		if (!this.#data.closed()) {
+		await this.#data.push(reader).catch(err => console.error("Error pushing reader:", err))
+		  // Push the reader without waiting for the log to finish
+
+		}
+	  }
 
 	// Receive the next a readable data stream
 	async data() {

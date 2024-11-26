@@ -34,7 +34,7 @@ import Watch from "@/components/watch.tsx";
     max-width: 800px;
     margin-top: 10px;
   }
-  .controls button {
+  .controls-button {
     padding: 10px 20px;
     background-color: #007bff;
     color: white;
@@ -72,24 +72,4 @@ import Watch from "@/components/watch.tsx";
 
 <div class="watch-container">
   <Watch name="bbb" client:only/>
-
-  {/* Video Controls */}
-  <div class="controls">
-    {/* Play/Pause Button */}
-    <button onClick={() => console.log("Play/Pause button clicked!")}>Play/Pause</button>
-
-    {/* Progress Bar */}
-    <div class="progress-bar" onClick={() => console.log("Progress bar clicked!")}>
-      <div></div>
-    </div>
-
-    {/* Volume Control */}
-    <div class="volume-control">
-      <label htmlFor="volume">Volume</label>
-      <input id="volume" type="range" min="0" max="100" onChange={() => console.log("Volume changed!")} />
-    </div>
-
-    {/* Stop Button */}
-    <button onClick={() => console.log("Stop button clicked!")}>Stop</button>
-  </div>
 </div>

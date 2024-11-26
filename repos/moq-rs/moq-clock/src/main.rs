@@ -72,7 +72,12 @@ async fn main() -> anyhow::Result<()> {
 		let clock = clock::Publisher::new(track.groups()?);
 
 		tokio::select! {
-			res = session.run() => res.context("session error")?,
+			res = session.run() => {
+				match res {
+					Ok(_) => log::info!("Session run completed successfully."),
+					Err(e) => log::error!("Session error occurred: {:?}", e),
+				}
+			},
 			res = clock.run() => res.context("clock error")?,
 			res = publisher.announce(reader) => res.context("failed to serve tracks")?,
 		}

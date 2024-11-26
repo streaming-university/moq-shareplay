@@ -46,7 +46,7 @@ module.exports = {
 		"@typescript-eslint/no-unsafe-return": "off",
 
 		// Make formatting errors into warnings
-		"prettier/prettier": 1,
+		//"prettier/prettier": 1,
 	},
 
 	parserOptions: {

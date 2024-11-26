@@ -61,7 +61,9 @@ export class Player {
 
 		return new Player(connection, catalog, backend)
 	}
-
+	setVolume(level: number) {
+		this.#backend.setVolume(level)
+	}
 	async #run() {
 		const inits = new Set<[string, string]>()
 		const tracks = new Array<Catalog.Track>()
@@ -77,11 +79,11 @@ export class Player {
 		await Promise.all(Array.from(inits).map((init) => this.#runInit(...init)))
 
 		// Call #runTrack on each track
-		await Promise.all(tracks.map((track) => this.#runTrack(track)))
+		await Promise.all(tracks.map((track) => this.#runTrack(track, 0, 0)))
 	}
 
 	async #runInit(namespace: string, name: string) {
-		const sub = await this.#connection.subscribe(namespace, name)
+		const sub = await this.#connection.subscribeWithAbsolute(namespace, name, 0, 0)
 		try {
 			const init = await Promise.race([sub.data(), this.#running])
 			if (!init) throw new Error("no init data")
@@ -97,9 +99,9 @@ export class Player {
 		}
 	}
 
-	async #runTrack(track: Catalog.Track) {
+	async #runTrack(track: Catalog.Track, startGroup: number, startObject: number) {
 		if (!track.namespace) throw new Error("track has no namespace")
-		const sub = await this.#connection.subscribe(track.namespace, track.name)
+		const sub = await this.#connection.subscribeWithAbsolute(track.namespace, track.name, startGroup, startObject)
 
 		try {
 			for (;;) {
@@ -162,6 +164,39 @@ export class Player {
 		}
 	}
 
+	async pause() {
+		try {
+			// Unsubscribe from all tracks in the catalog
+			for (const track of this.#catalog.tracks) {
+				if (!track.namespace) throw new Error("Track has no namespace")
+
+				await this.#connection.unsubscribe(track.namespace, track.name)
+			}
+
+			await this.#backend.pause()
+
+			console.log("Playback paused and unsubscribed from tracks")
+		} catch (error) {
+			console.error(error)
+		}
+	}
+
+	async resubscribe(startGroup: number, startObject: number) {
+		try {
+			// Resubscribe to all tracks concurrently
+			const reSubscriptions = this.#catalog.tracks.map(async (track) => {
+				if (!track.namespace) throw new Error("track namespace is missing")
+				await this.#runTrack(track, startGroup, startObject)
+			})
+
+			await Promise.all(reSubscriptions)
+			await this.#backend.play()
+
+			console.log("Resubscribed to tracks and playback resumed")
+		} catch (error) {
+			console.error("Error while resubscribing to the tracks:", error)
+		}
+	}
 	/*
 	play() {
 		this.#backend.play({ minBuffer: 0.5 }) // TODO configurable

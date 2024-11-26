@@ -1,5 +1,5 @@
 /* eslint-disable jsx-a11y/media-has-caption */
-import { Player } from "@kixelated/moq/playback"
+import { Player } from "@kixelated/moq/playback/player"
 
 import { createEffect, createMemo, createSignal, onCleanup, Show } from "solid-js"
 
@@ -15,6 +15,7 @@ export default function Watch(props: { name: string }) {
 
 	const [usePlayer, setPlayer] = createSignal<Player | undefined>()
 	const [showCatalog, setShowCatalog] = createSignal(false)
+	const [volume, setVolume] = createSignal(50)
 
 	createEffect(() => {
 		const namespace = props.name
@@ -27,6 +28,12 @@ export default function Watch(props: { name: string }) {
 		Player.create({ url, fingerprint, canvas, namespace }).then(setPlayer).catch(setError)
 	})
 
+	const changeVolume = (event: Event) => {
+		const volumeValue = (event.target as HTMLInputElement).value
+		setVolume(Number(volumeValue)) // Update the signal
+		usePlayer()?.setVolume(Number(volumeValue) / 100) // Adjust the player's volume
+	}
+
 	createEffect(() => {
 		const player = usePlayer()
 		if (!player) return
@@ -38,6 +45,14 @@ export default function Watch(props: { name: string }) {
 	const play = () => {
 		usePlayer()?.play().catch(setError)
 	}
+
+	const pause = () => {
+		usePlayer()?.pause().catch(setError);
+	};
+
+	const handleContinue = () => {
+		usePlayer()?.resubscribe(2000,0).catch(setError);
+	  };
 
 	// The JSON catalog for debugging.
 	const catalog = createMemo(() => {
@@ -52,7 +67,27 @@ export default function Watch(props: { name: string }) {
 	// TODO shrink it if needed via CSS
 	return (
 		<>
-			<canvas ref={canvas} onClick={play}/>
+		  <canvas ref={canvas} onClick={play} />
+
+		  <div class="volume-control">
+			<label>Volume</label>
+			<input
+			  id="volume"
+			  type="range"
+			  min="0"
+			  max="100"
+			  value={volume()}
+			  onInput={changeVolume}
+			/>
+		  </div>
+
+		  <div class="controls">
+			<button class="controls-button" onClick={pause}>Pause</button>
+		  </div>
+
+		  <div class="controls">
+			<button class="controls-button" onClick={handleContinue}>Continue</button>
+		  </div>
 		</>
-	)
+	  )
 }
