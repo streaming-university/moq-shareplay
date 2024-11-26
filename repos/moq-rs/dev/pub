@@ -4,6 +4,8 @@ set -euo pipefail
 # Change directory to the root of the project
 cd "$(dirname "$0")/.."
 
+mkdir -p atoms
+
 # Download the Big Buck Bunny video if it doesn't exist
 if [ ! -f dev/bbb.fmp4 ]; then
 	if [ ! -f dev/bbb.mp4 ]; then
@@ -40,9 +42,11 @@ INPUT="${INPUT:-dev/bbb.fmp4}"
 echo "Watch URL: https://quic.video/watch/$NAME?server=$ADDR"
 
 # Run ffmpeg and pipe the output to moq-pub
-ffmpeg -hide_banner -v quiet \
-	-stream_loop -1 -re \
-	-i "$INPUT" \
-	-c copy \
-	-f mp4 -movflags cmaf+separate_moof+delay_moov+skip_trailer+frag_every_frame \
-	- | cargo run --bin moq-pub -- --name "$NAME" "$URL" "$@"
+# ffmpeg -hide_banner -v quiet \
+# 	-stream_loop -1 -re \
+# 	-i "$INPUT" \
+# 	-c copy \
+# 	-f mp4 -movflags cmaf+separate_moof+delay_moov+skip_trailer+frag_every_frame \
+# 	- | cargo run --bin moq-pub -- --name "$NAME" "$URL" "$@"
+
+cargo run --bin moq-pub -- --name "$NAME" "$URL" "$@"

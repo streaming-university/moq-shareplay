@@ -140,7 +140,7 @@ impl Media {
 
 
 		// Generate a filename based on the atom type and timestamp.
-		//let filename = format!("{}_{}.bin", self.count, header.name.to_string());
+		let filename = format!("{}_{}.bin", self.count, header.name.to_string());
         self.count += 1;
 		let now	 = Utc::now();
     	println!("{}", now.format("%H.%M.%S"));

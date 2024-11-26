@@ -51,7 +51,7 @@ export default function Watch(props: { name: string }) {
 	};
 
 	const handleContinue = () => {
-		usePlayer()?.resubscribe().catch(setError);
+		usePlayer()?.resubscribe(2000,0).catch(setError);
 	  };
 
 	// The JSON catalog for debugging.

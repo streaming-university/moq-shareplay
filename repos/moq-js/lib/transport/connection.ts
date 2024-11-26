@@ -55,6 +55,10 @@ export class Connection {
 		return this.#subscriber.subscribe(namespace, track)
 	}
 
+	subscribeWithAbsolute(namespace: string, track: string, startGroup: number, startObject: number) {
+		return this.#subscriber.subscribeAbsoluteStart(namespace, track, startGroup, startObject)
+		//return this.#subscriber.subscribe(namespace, track)
+	}
 	subscribed() {
 		return this.#publisher.subscribed()
 	}
