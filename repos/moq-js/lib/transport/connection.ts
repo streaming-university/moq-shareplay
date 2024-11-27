@@ -59,8 +59,8 @@ export class Connection {
 		return this.#subscriber.announced()
 	}
 
-	subscribe(namespace: string, track: string) {
-		return this.#subscriber.subscribe(namespace, track)
+	async subscribe(namespace: string, track: string) {
+		return await this.#subscriber.subscribe(namespace, track)
 	}
 
 	subscribed() {
