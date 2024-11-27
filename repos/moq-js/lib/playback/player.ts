@@ -61,9 +61,11 @@ export class Player {
 
 		return new Player(connection, catalog, backend)
 	}
+
 	setVolume(level: number) {
 		this.#backend.setVolume(level)
 	}
+	
 	async #run() {
 		const inits = new Set<[string, string]>()
 		const tracks = new Array<Catalog.Track>()

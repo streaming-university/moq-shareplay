@@ -52,7 +52,7 @@ export default function Watch(props: { name: string }) {
 
 	const handleContinue = () => {
 		usePlayer()?.resubscribe(2000,0).catch(setError);
-	  };
+	};
 
 	// The JSON catalog for debugging.
 	const catalog = createMemo(() => {
@@ -89,5 +89,5 @@ export default function Watch(props: { name: string }) {
 			<button class="controls-button" onClick={handleContinue}>Continue</button>
 		  </div>
 		</>
-	  )
+	)
 }

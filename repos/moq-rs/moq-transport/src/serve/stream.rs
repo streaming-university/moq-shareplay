@@ -290,7 +290,7 @@ impl StreamGroupReader {
 				let state = self.state.lock();
 				if self.index < state.objects.len() {
 					self.index += 1;
-					return Ok(Some(state.objects[self.index].clone()));
+					return Ok(Some(state.objects[self.index-1].clone()));
 				}
 
 				state.closed.clone()?;
@@ -469,6 +469,10 @@ impl StreamObjectReader {
 				if self.index < state.chunks.len() {
 					let chunk = state.chunks[self.index].clone();
 					self.index += 1;
+					match std::str::from_utf8(&chunk) {
+						Ok(content) => log::info!("Received content: {}", content),
+						Err(e) => log::error!("Error decoding bytes: {}", e),
+					}
 					return Ok(Some(chunk));
 				}
 

@@ -80,6 +80,7 @@ impl Subscribe {
 
 		(send, recv)
 	}
+
 	pub(super) fn new_latest_group(mut subscriber: Subscriber, id: u64, track: TrackWriter) -> (Subscribe, SubscribeRecv) {
 		subscriber.send_message(message::Subscribe {
 			id,

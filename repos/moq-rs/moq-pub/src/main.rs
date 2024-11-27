@@ -1,5 +1,5 @@
 use bytes::BytesMut;
-use std::net;
+use std::{net, env, fs, path::PathBuf};
 use url::Url;
 
 use anyhow::Context;
@@ -11,11 +11,8 @@ use moq_pub::Media;
 use moq_transport::{serve, session::Publisher};
 
 use bytes::Bytes;
-use std::env;
-use std::fs;
-use std::path::PathBuf;
 use tokio::fs::File;
-use tokio::time::{sleep, Duration, Instant};
+use tokio::time::{Duration, Instant};
 
 #[derive(Parser, Clone)]
 pub struct Cli {
@@ -98,10 +95,9 @@ async fn run_media(mut media: Media, start_group: Option<u32>, start_object: Opt
 	);
 
 	// Directory containing atom files
-	//let dir = "/Users/keremsmacbook/Desktop/42/Research/Media Over QUIC/code/shareplay-moq/repos/moq-rs/atoms";
-
 	let dir_path = env::current_dir()?.join("atoms");
 	let dir = dir_path.to_str().unwrap();
+	
 	// Collect and sort atom files
 	let mut atom_files: Vec<PathBuf> = fs::read_dir(dir)
 		.context("Failed to read atom directory")?
@@ -233,8 +229,10 @@ async fn run_media(mut media: Media, start_group: Option<u32>, start_object: Opt
 async fn run_media_working(mut media: Media) -> anyhow::Result<()> {
 	//TODO: The saving logic of the atoms should be moved to pipe, and the saving directory should be globalized.
 
-	let dir = "/Users/keremsmacbook/Desktop/42/Research/Media Over QUIC/code/shareplay-moq/repos/moq-rs/atoms";
-
+	// Directory containing atom files
+	let dir_path = env::current_dir()?.join("atoms");
+	let dir = dir_path.to_str().unwrap();
+	
 	// Collect and sort atom files by sequence number from the saved directory.
 	let mut atom_files: Vec<PathBuf> = fs::read_dir(dir)?
 		.filter_map(|entry| entry.ok().map(|e| e.path()))

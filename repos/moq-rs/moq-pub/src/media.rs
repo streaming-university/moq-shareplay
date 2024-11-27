@@ -6,7 +6,6 @@ use std::cmp::max;
 use std::collections::HashMap;
 use std::io::Cursor;
 use std::time;
-use std::time::Instant;
 use chrono::Utc;
 use std::{fs::File, io::Write, path::Path};
 

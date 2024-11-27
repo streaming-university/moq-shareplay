@@ -83,6 +83,7 @@ export class Subscriber {
 		console.log("Sent subscription request:", { startGroup, startObject });
     	return subscribe;
 	}
+	
 	async subscribe(namespace: string, track: string) {
 		const id = this.#subscribeNext++
 
