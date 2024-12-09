@@ -18,11 +18,6 @@ pub struct Config {
 	#[arg(long, default_value = "1500000")]
 	pub bitrate: u32,
 
-	#[arg(long, default_value = "0")]
-	pub start_group: u32,
-
-	#[arg(long, default_value = "0")]
-	pub start_object: u32,
 	/// Connect to the given URL starting with https://
 	#[arg(value_parser = moq_url)]
 	pub url: Url,

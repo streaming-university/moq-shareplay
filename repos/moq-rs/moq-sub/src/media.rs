@@ -49,10 +49,7 @@ impl<O: AsyncWrite + Send + Unpin + 'static> Media<O> {
 
 			let track = self.broadcast.subscribe(init_track_name).context("no init track")?;
 			let mut group = match track.mode().await? {
-				TrackReaderMode::Groups(mut groups) => {
-					log::info!("Available groups for track: {:?}", groups.info.name);
-					groups.next().await?.context("no init group")?
-				}
+				TrackReaderMode::Groups(mut groups) => groups.next().await?.context("no init group")?,
 				_ => anyhow::bail!("expected init segment"),
 			};
 

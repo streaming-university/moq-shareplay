@@ -1,5 +1,3 @@
-use core::str;
-
 use crate::coding::{Decode, DecodeError, Encode, EncodeError, Params};
 use crate::message::FilterType;
 
@@ -29,40 +27,21 @@ pub struct Subscribe {
 
 impl Decode for Subscribe {
 	fn decode<R: bytes::Buf>(r: &mut R) -> Result<Self, DecodeError> {
-		log::info!("Starting Subscribe decoding. Buffer remaining: {}", r.remaining());
+		let id = u64::decode(r)?;
+		let track_alias = u64::decode(r)?;
+		let track_namespace = String::decode(r)?;
+		let track_name = String::decode(r)?;
 
-        let id = u64::decode(r)?;
-        log::info!("Decoded id: {}. Buffer remaining: {}", id, r.remaining());
+		let filter_type = FilterType::decode(r)?;
 
-        let track_alias = u64::decode(r)?;
-        log::info!("Decoded track_alias: {}. Buffer remaining: {}", track_alias, r.remaining());
-
-        let track_namespace = String::decode(r)?;
-        log::info!("Decoded track_namespace: {}. Buffer remaining: {}", track_namespace, r.remaining());
-
-        let track_name = String::decode(r)?;
-        log::info!("Decoded track_name: {}. Buffer remaining: {}", track_name, r.remaining());
-
-		let original_chunk = r.chunk();
-		let mut temp_buffer = &original_chunk[..];
-
-		let filter_type = FilterType::decode(&mut temp_buffer)?;
-        //let filter_type = FilterType::decode(r)?;
-        log::info!("Decoded filter_type: {:?}. Buffer remaining: {}", filter_type, r.remaining());
-
-		log::info!("Remaining buffer is: {:?}", str::from_utf8(r.chunk()));
 		let start: Option<SubscribePair>;
 		let end: Option<SubscribePair>;
 		match filter_type {
 			FilterType::AbsoluteStart => {
-
-				log::info!("FILTER TYPE ABSOLUTE START REACHED");
 				if r.remaining() < 2 {
-					log::error!("Insufficient bytes for AbsoluteStart. Buffer remaining: {}", r.remaining());
 					return Err(DecodeError::MissingField);
 				}
 				start = Some(SubscribePair::decode(r)?);
-				log::info!("Decoded start: {:?}. Buffer remaining: {}", start, r.remaining());
 				end = None;
 			}
 			FilterType::AbsoluteRange => {
@@ -116,39 +95,22 @@ impl Encode for Subscribe {
 		self.track_name.encode(w)?;
 
 		self.filter_type.encode(w)?;
-		log::info!("encode for the following filter type came in: {:?}", self.filter_type);
 
-		if self.filter_type == FilterType::AbsoluteStart
-		{
-			if let Some(start) = &self.start{
+		if self.filter_type == FilterType::AbsoluteStart || self.filter_type == FilterType::AbsoluteRange {
+			if self.start.is_none() || self.end.is_none() {
+				return Err(EncodeError::MissingField);
+			}
+			if let Some(start) = &self.start {
 				start.encode(w)?;
-			}else {
-				SubscribePair
-				{
-					group: SubscribeLocation::None,
-                    object: SubscribeLocation::None,
-				}
-				.encode(w)?;
+			}
+			if let Some(end) = &self.end {
+				end.encode(w)?;
 			}
 		}
+
 		self.params.encode(w)?;
 
 		Ok(())
-
-
-		//-----------------------
-		// if self.filter_type == FilterType::AbsoluteStart || self.filter_type == FilterType::AbsoluteRange {
-		// 	if self.start.is_none() || self.end.is_none() {
-		// 		return Err(EncodeError::MissingField);
-		// 	}
-		// 	if let Some(start) = &self.start {
-		// 		start.encode(w)?;
-		// 	}
-		// }
-
-		// self.params.encode(w)?;
-
-		// Ok(())
 	}
 }
 
@@ -187,7 +149,6 @@ pub enum SubscribeLocation {
 impl Decode for SubscribeLocation {
 	fn decode<R: bytes::Buf>(r: &mut R) -> Result<Self, DecodeError> {
 		let kind = u64::decode(r)?;
-		log::info!("Decoding SubscribeLocation with kind: {}", kind);
 
 		match kind {
 			0 => Ok(Self::None),
