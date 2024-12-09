@@ -116,8 +116,6 @@ export class Objects {
 		const type = (await r.u53()) as StreamType
 		let res: TrackReader | GroupReader | ObjectReader
 
-		console.log(`Stream type: ${type}`)
-
 		if (type == StreamType.Track) {
 			const h: TrackHeader = {
 				type,
@@ -126,7 +124,6 @@ export class Objects {
 				priority: await r.u53(),
 			}
 
-			console.log("Track reader will be created")
 			res = new TrackReader(h, r)
 		} else if (type == StreamType.Group) {
 			const h: GroupHeader = {
@@ -153,7 +150,7 @@ export class Objects {
 			throw new Error("unknown stream type")
 		}
 
-		console.trace("receive object", res.header)
+		// console.trace("receive object", res.header)
 
 		return res
 	}
@@ -225,7 +222,7 @@ export class TrackReader {
 	constructor(
 		public header: TrackHeader,
 		public stream: Reader,
-	) {console.log("TrackReader instance created")}
+	) {}
 
 	async read(): Promise<TrackChunk | undefined> {
 		if (await this.stream.done()) {
@@ -243,14 +240,6 @@ export class TrackReader {
 			payload = await this.stream.read(size)
 		}
 
-		console.log("Read TrackChunk:")
-		console.log(`  Group: ${group}`)
-		console.log(`  Object: ${object}`)
-		if (size == 0) {
-			console.log(`  Status: ${payload.toString()}`)
-		} else {
-			console.log(`  Payload size: ${size}`)
-		}
 		return {
 			group,
 			object,
@@ -267,7 +256,7 @@ export class GroupReader {
 	constructor(
 		public header: GroupHeader,
 		public stream: Reader,
-	) {console.log("Group reader is created")}
+	) {}
 
 	async read(): Promise<GroupChunk | undefined> {
 		if (await this.stream.done()) {
@@ -299,7 +288,7 @@ export class ObjectReader {
 	constructor(
 		public header: ObjectHeader,
 		public stream: Reader,
-	) {console.log("Object reader is created.")}
+	) {}
 
 	// NOTE: Can only be called once.
 	async read(): Promise<ObjectChunk | undefined> {

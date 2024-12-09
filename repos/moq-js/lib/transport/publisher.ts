@@ -90,14 +90,7 @@ export class Publisher {
 	}
 
 	recvUnsubscribe(_msg: Control.Unsubscribe) {
-		const subscribe = this.#subscribe.get(_msg.id)
-		if (!subscribe) {
-			console.warn(`unsubscribe received for unknown id: ${_msg.id}`)
-			return
-		}
-
-		this.#subscribe.delete(_msg.id)
-		console.log(`Unsubscribed track with id: ${_msg.id}`)
+		throw new Error("TODO unsubscribe")
 	}
 }
 

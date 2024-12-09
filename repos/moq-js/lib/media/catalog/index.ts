@@ -44,7 +44,7 @@ export function decode(raw: Uint8Array): Root {
 }
 
 export async function fetch(connection: Connection, namespace: string): Promise<Root> {
-	const subscribe = await connection.subscribeWithAbsolute(namespace, ".catalog", 0, 0)
+	const subscribe = await connection.subscribe(namespace, ".catalog")
 	try {
 		const segment = await subscribe.data()
 		if (!segment) throw new Error("no catalog data")
