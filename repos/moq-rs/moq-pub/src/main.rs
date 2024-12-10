@@ -65,14 +65,21 @@ async fn main() -> anyhow::Result<()> {
 	log::info!("connecting to relay: url={}", cli.url);
 	let session = quic.client.connect(&cli.url).await?;
 
-	let (session, mut publisher) = Publisher::connect(session)
+	// let (session, mut publisher) = Publisher::connect(session)
+	// 	.await
+	// 	.context("failed to create MoQ Transport publisher")?;
+
+	let (session, mut publisher, subscriber) = moq_transport::session::Session::connect(session)
 		.await
-		.context("failed to create MoQ Transport publisher")?;
+		.context("failed to establish forward session")?;
+
+	// let asd = session.connect();
 
 	tokio::select! {
 		res = session.run() => res.context("session error")?,
 		res = run_media(media) => res.context("media error")?,
 		res = publisher.announce(reader) => res.context("publisher error")?,
+		// res = subscriber.subscribe(writer) => res.context("subscriber error")?,
 	}
 
 	Ok(())
