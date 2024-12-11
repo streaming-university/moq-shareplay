@@ -43,7 +43,7 @@ impl Tracks {
 pub struct TracksState {
 	tracks: HashMap<String, TrackReader>,
 }
-
+#[derive(Clone)]
 /// Publish new tracks for a broadcast by name.
 pub struct TracksWriter {
 	state: State<TracksState>,

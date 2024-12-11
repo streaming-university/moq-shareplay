@@ -184,8 +184,7 @@ export default function Watch(props: { name: string }) {
 				payload: payload,
 			})
 		}catch(err){
-			await createTrackWriter()
-			sendMessage()
+			console.error("Error sending message: ", err)
 		}
 		
 

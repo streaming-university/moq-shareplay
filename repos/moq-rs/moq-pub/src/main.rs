@@ -8,8 +8,13 @@ use tokio::time::{Duration, Instant};
 use tokio::{fs::File, io::AsyncReadExt};
 
 use moq_native::quic;
-use moq_pub::Media;
-use moq_transport::{serve, session::Publisher};
+use moq_pub::{Media, SubToSync};
+use moq_transport::{serve, serve::Tracks, session::Publisher};
+use moq_transport::session::Subscriber;
+
+use moq_transport::serve::{TrackReaderMode, TracksReader};
+
+// use moq_transport::serve::Tracks;
 
 #[derive(Parser, Clone)]
 pub struct Cli {
@@ -73,17 +78,52 @@ async fn main() -> anyhow::Result<()> {
 		.await
 		.context("failed to establish forward session")?;
 
-	// let asd = session.connect();
+	let tracks = Tracks::new(String::from("sync-namespace"));
+	// let (tracks_writer, _tracks_request, mut tracks_reader) = tracks.produce();
+	// let track = tracks_reader.subscribe("sync-track").context("no sync track")?;
 
+	let mut syncer = SubToSync::new(subscriber, tracks).await?;
+			
 	tokio::select! {
 		res = session.run() => res.context("session error")?,
 		res = run_media(media) => res.context("media error")?,
 		res = publisher.announce(reader) => res.context("publisher error")?,
-		// res = subscriber.subscribe(writer) => res.context("subscriber error")?,
+		res = syncer.run() => res.context("syncer error")?,
+		// res = subscribe_sync_track(tracks_reader) => res.context("subscriber error")?,
 	}
 
 	Ok(())
 }
+
+// pub async fn subscribe_sync_track(mut broadcast: TracksReader) -> anyhow::Result<()> {
+//     // Subscribe to the existing sync-track (already in the sync-namespace)
+//     let track = broadcast.subscribe("sync-track").context("no sync track")?;
+
+//     // Expect the track to be in groups mode
+//     if let TrackReaderMode::Groups(mut groups) = track.mode().await? {
+//         while let Some(mut group) = groups.next().await? {
+//             while let Some(object) = group.next().await? {
+//                 // Use the existing recv_object function
+//                 let data = recv_object(object).await?;
+//                 // Do something with the data. For example, print it:
+//                 println!("Received data on sync-track: {:?}", data);
+//             }
+//         }
+//     } else {
+//         anyhow::bail!("sync-track did not provide groups mode");
+//     }
+
+//     Ok(())
+// }
+
+// // Use the existing recv_object function as defined in the original code:
+// async fn recv_object(mut object: moq_transport::serve::GroupObjectReader) -> anyhow::Result<Vec<u8>> {
+//     let mut buf = Vec::with_capacity(object.size);
+//     while let Some(chunk) = object.read().await? {
+//         buf.extend_from_slice(&chunk);
+//     }
+//     Ok(buf)
+// }
 
 async fn run_media(mut media: Media) -> anyhow::Result<()> {
 	//TODO: The saving logic of the atoms should be moved to pipe
