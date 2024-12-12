@@ -3,7 +3,7 @@ use std::time::Duration;
 use anyhow::Context;
 use log::{debug, trace, warn};
 use moq_transport::serve::{
-    GroupObjectReader, GroupReader, TrackReader, TrackReaderMode, Tracks, TracksReader, TracksWriter, TrackWriter,
+    DatagramsReader, GroupObjectReader, GroupReader, GroupsReader, ObjectsReader, StreamReader, TrackReader, TrackReaderMode, TrackWriter, Tracks, TracksReader, TracksWriter
 };
 use std::clone::Clone;
 use moq_transport::session::Subscriber;
@@ -18,7 +18,8 @@ pub struct SubToSync {
 impl SubToSync {
     pub async fn new(subscriber: Subscriber, tracks: Tracks) -> anyhow::Result<Self> {
         let (tracks_writer, _tracks_request, tracks_reader) = tracks.produce();
-        let broadcast = tracks_reader; 
+        let broadcast = tracks_reader;
+
         Ok(Self {
             subscriber,
             broadcast,
@@ -32,6 +33,7 @@ impl SubToSync {
         let mut tracks_writer = self.tracks_writer.clone();
 
         // Spawn a task that will repeatedly attempt to subscribe until successful
+<<<<<<< HEAD
         // tokio::task::spawn(async move {
         println!("ENTERING THE LOOOPP");
         loop {
@@ -70,38 +72,86 @@ impl SubToSync {
         });
 
         while tasks.join_next().await.is_some() {}
-        Ok(())
-    }
+=======
 
-    async fn recv_track(track: TrackReader) -> anyhow::Result<()> {
-        let name = track.name.clone();
-        debug!("track {name}: start");
-        if let TrackReaderMode::Groups(mut groups) = track.mode().await? {
-            while let Some(group) = groups.next().await? {
-                if let Err(err) = Self::recv_group(group).await {
-                    warn!("failed to receive group: {err:?}");
+            let mut subscriber = subscriber.clone();
+            let mut tracks_writer = tracks_writer.clone();
+
+
+                loop {
+                    let track = tracks_writer.create(sync_track_name).unwrap();
+                    match subscriber.subscribe_sync(track).await {
+                        Ok(_) => {
+                            // Successfully subscribed
+							log::info!("Exiting the subscription now.");
+                            break;
+                        }
+                        Err(err) => {
+                            warn!("failed to subscribe to sync track: {err:?}, retrying in 2s");
+                        }
+                    }
+
+                    // Re-create the track handle each attempt
+                    sleep(Duration::from_secs(2)).await;
                 }
-            }
-        }
-        debug!("track {name}: finish");
+		let sync_reader = self.broadcast.subscribe(sync_track_name).context("no sync track")?;
+		log::info!("SYNC_READER is now available.");
+
+		match sync_reader.mode().await.context("failed to get mode")?{
+			TrackReaderMode::Stream(stream) => Self::recv_stream(stream).await?,
+            TrackReaderMode::Groups(groups) => Self::recv_groups(groups).await?,
+            TrackReaderMode::Objects(objects) => Self::recv_objects(objects).await?,
+            TrackReaderMode::Datagrams(datagrams) => Self::recv_datagrams(datagrams).await?,
+		}
+>>>>>>> 03ae1b6 (We can send a message to the publisher from the client :)))
         Ok(())
     }
+	async fn recv_stream(mut track: StreamReader) -> anyhow::Result<()> {
+		while let Some(mut group) = track.next().await? {
+			while let Some(object) = group.read_next().await? {
+				let str = String::from_utf8_lossy(&object);
+				println!("{}", str);
+			}
+		}
 
-    async fn recv_group(mut group: GroupReader) -> anyhow::Result<()> {
-        trace!("group={} start", group.group_id);
-        while let Some(object) = group.next().await? {
-            trace!("group={} fragment={} start", group.group_id, object.object_id);
-            let buf = Self::recv_object(object).await?;
-            println!("Received data on sync-track: {:?}", buf);
-        }
-        Ok(())
-    }
+		Ok(())
+	}
 
-    async fn recv_object(mut object: GroupObjectReader) -> anyhow::Result<Vec<u8>> {
-        let mut buf = Vec::with_capacity(object.size);
-        while let Some(chunk) = object.read().await? {
-            buf.extend_from_slice(&chunk);
-        }
-        Ok(buf)
-    }
+	async fn recv_groups(mut groups: GroupsReader) -> anyhow::Result<()> {
+		while let Some(mut group) = groups.next().await? {
+			let base = group
+				.read_next()
+				.await
+				.context("failed to get first object")?
+				.context("empty group")?;
+
+			let base = String::from_utf8_lossy(&base);
+
+			while let Some(object) = group.read_next().await? {
+				let str = String::from_utf8_lossy(&object);
+				println!("{}{}", base, str);
+			}
+		}
+
+		Ok(())
+	}
+
+	async fn recv_objects(mut objects: ObjectsReader) -> anyhow::Result<()> {
+		while let Some(mut object) = objects.next().await? {
+			let payload = object.read_all().await?;
+			let str = String::from_utf8_lossy(&payload);
+			println!("{}", str);
+		}
+
+		Ok(())
+	}
+
+	async fn recv_datagrams(mut datagrams: DatagramsReader) -> anyhow::Result<()> {
+		while let Some(datagram) = datagrams.read().await? {
+			let str = String::from_utf8_lossy(&datagram.payload);
+			println!("{}", str);
+		}
+
+		Ok(())
+	}
 }
