@@ -33,46 +33,6 @@ impl SubToSync {
         let mut tracks_writer = self.tracks_writer.clone();
 
         // Spawn a task that will repeatedly attempt to subscribe until successful
-<<<<<<< HEAD
-        // tokio::task::spawn(async move {
-        println!("ENTERING THE LOOOPP");
-        loop {
-            let track = tracks_writer.create(sync_track_name).unwrap();
-            println!("OH YEAH LOOPING1");
-
-            match subscriber.subscribe_sync(track).await {
-                Ok(()) => {
-                    // Successfully subscribed (no additional data returned)
-                    println!("OK MESSAGE CAME, QUITTING FROM LOOP");
-                    break;
-                }
-                Err(err) => {
-                    // Failed to subscribe, handle the error
-                    warn!("Failed to subscribe to sync track: {err:?}, retrying in 2s");
-                }
-            }
-
-            // Re-create the track handle each attempt
-            sleep(Duration::from_secs(2)).await;
-        }
-
-
-        // });
-
-        // Obtain the TrackReader for "sync-track"
-        let sync_reader = self.broadcast.subscribe(sync_track_name)
-            .context("no sync track")?;
-
-        let mut tasks = JoinSet::new();
-        tasks.spawn(async move {
-            let name = sync_reader.name.clone();
-            if let Err(err) = Self::recv_track(sync_reader).await {
-                warn!("failed to receive sync track {name}: {err:?}");
-            }
-        });
-
-        while tasks.join_next().await.is_some() {}
-=======
 
             let mut subscriber = subscriber.clone();
             let mut tracks_writer = tracks_writer.clone();
@@ -103,7 +63,6 @@ impl SubToSync {
             TrackReaderMode::Objects(objects) => Self::recv_objects(objects).await?,
             TrackReaderMode::Datagrams(datagrams) => Self::recv_datagrams(datagrams).await?,
 		}
->>>>>>> 03ae1b6 (We can send a message to the publisher from the client :)))
         Ok(())
     }
 	async fn recv_stream(mut track: StreamReader) -> anyhow::Result<()> {
