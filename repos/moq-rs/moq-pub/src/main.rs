@@ -1,18 +1,20 @@
-use bytes::BytesMut;
-use std::{net, env, fs, path::PathBuf};
+use bytes::{Bytes, BytesMut};
+use std::{env, fs, net, path::PathBuf};
 use url::Url;
 
 use anyhow::Context;
 use clap::Parser;
-use tokio::io::AsyncReadExt;
+use tokio::time::{Duration, Instant};
+use tokio::{fs::File, io::AsyncReadExt};
 
 use moq_native::quic;
-use moq_pub::Media;
-use moq_transport::{serve, session::Publisher};
+use moq_pub::{Media, SubToSync};
+use moq_transport::{serve, serve::Tracks, session::Publisher};
+use moq_transport::session::Subscriber;
 
-use bytes::Bytes;
+use moq_transport::serve::{TrackReaderMode, TracksReader};
 use tokio::fs::File;
-use tokio::time::{Duration, Instant};
+
 
 #[derive(Parser, Clone)]
 pub struct Cli {
@@ -73,19 +75,36 @@ async fn main() -> anyhow::Result<()> {
 	log::info!("connecting to relay: url={}", cli.url);
 	let session = quic.client.connect(&cli.url).await?;
 
-	let (session, mut publisher) = Publisher::connect(session)
-		.await
-		.context("failed to create MoQ Transport publisher")?;
+	// let (session, mut publisher) = Publisher::connect(session)
+	// 	.await
+	// 	.context("failed to create MoQ Transport publisher")?;
 
+	let (session, mut publisher, subscriber) = moq_transport::session::Session::connect(session)
+		.await
+		.context("failed to establish forward session")?;
+
+	let tracks = Tracks::new(String::from("sync-namespace"));
+	// let (tracks_writer, _tracks_request, mut tracks_reader) = tracks.produce();
+	// let track = tracks_reader.subscribe("sync-track").context("no sync track")?;
+
+	let mut syncer = SubToSync::new(subscriber, tracks).await?;
+			
 	tokio::select! {
 		res = session.run() => res.context("session error")?,
 		res = run_media(media, Some(cli.start_group), Some(cli.start_object)) => res.context("media error")?,
 		//res = run_media(media) => res.context("media error")?,
 		res = publisher.announce(reader) => res.context("publisher error")?,
+		res = syncer.run() => res.context("syncer error")?,
+		// res = subscribe_sync_track(tracks_reader) => res.context("subscriber error")?,
 	}
 
 	Ok(())
 }
+
+// async fn run_media(mut media: Media) -> anyhow::Result<()> {
+// 	//TODO: The saving logic of the atoms should be moved to pipe
+// 	let dir_path = env::current_dir()?.join("atoms");
+// 	let dir = dir_path.to_str().unwrap();
 
 async fn run_media(mut media: Media, start_group: Option<u32>, start_object: Option<u32>) -> anyhow::Result<()> {
 	log::debug!(
@@ -326,10 +345,11 @@ async fn run_media_working(mut media: Media) -> anyhow::Result<()> {
 		// Logging the calculated FPS.
 		let elapsed = start_time.elapsed().as_secs_f64();
 		let fps = total_frames as f64 / elapsed;
-		//println!("Current Elapsed: {:.2}", elapsed);
-		//println!("Total Frames Sent: {:.2}", total_frames);
-		//println!("Current FPS: {:.2}", fps);
 
+    // println!("Current Elapsed: {:.2}", elapsed);
+		// println!("Total Frames Sent: {:.2}", total_frames);
+		// println!("Current FPS: {:.2}", fps);
+    
 		// Added delay to slow down playback speed.
 		tokio::time::sleep(batch_delay).await;
 	}
@@ -339,6 +359,7 @@ async fn run_media_working(mut media: Media) -> anyhow::Result<()> {
 
 // TODO: This method is saving the atoms currently, it should be configured so that we can save the atoms without playing the video itself.
 // TODO: IMPORTANT: Luke sends 66.5 frame's per second, not the init frame but 66.5 (moof + mdat)'s.
+
 async fn run_media_luke(mut media: Media) -> anyhow::Result<()> {
 	let dir_path = env::current_dir()?.join("atoms");
 	let dir = dir_path.to_str().unwrap();

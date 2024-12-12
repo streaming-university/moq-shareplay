@@ -54,7 +54,7 @@ export interface ObjectChunk {
 	payload: Uint8Array
 }
 
-type WriterType<T> = T extends TrackHeader
+export type WriterType<T> = T extends TrackHeader
 	? TrackWriter
 	: T extends GroupHeader
 	? GroupWriter

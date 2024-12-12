@@ -35,6 +35,14 @@ export class Connection {
 		this.#running = this.#run()
 	}
 
+	getObjects(): Objects {
+		return this.#objects
+	}
+
+	getQuic(): WebTransport {
+		return this.#quic
+	}
+
 	close(code = 0, reason = "") {
 		this.#quic.close({ closeCode: code, reason })
 	}
@@ -51,8 +59,8 @@ export class Connection {
 		return this.#subscriber.announced()
 	}
 
-	subscribe(namespace: string, track: string) {
-		return this.#subscriber.subscribe(namespace, track)
+	async subscribe(namespace: string, track: string) {
+		return await this.#subscriber.subscribe(namespace, track)
 	}
 
 	subscribeWithAbsolute(namespace: string, track: string, startGroup: number, startObject: number) {
