@@ -96,6 +96,23 @@ impl Subscribe {
 			.await;
 		}
 	}
+
+	pub async fn closed_sync(&self) -> Result<(), ServeError> {
+		loop {
+			{
+				let state = self.state.lock();
+				state.closed.clone()?;
+				if state.ok {
+					return Ok(());
+				}
+				match state.modified() {
+					Some(notify) => notify,
+					None => return Ok(()),
+				}
+			}
+				.await;
+		}
+	}
 }
 
 impl Drop for Subscribe {

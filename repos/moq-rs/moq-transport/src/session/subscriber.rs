@@ -62,6 +62,15 @@ impl Subscriber {
 		send.closed().await
 	}
 
+	pub async fn subscribe_sync(&mut self, track: serve::TrackWriter) -> Result<(), ServeError> {
+		let id = self.subscribe_next.fetch_add(1, atomic::Ordering::Relaxed);
+
+		let (send, recv) = Subscribe::new(self.clone(), id, track);
+		self.subscribes.lock().unwrap().insert(id, recv);
+
+		send.closed_sync().await
+	}
+
 	pub(super) fn send_message<M: Into<message::Subscriber>>(&mut self, msg: M) {
 		let msg = msg.into();
 

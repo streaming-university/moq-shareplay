@@ -33,23 +33,28 @@ impl SubToSync {
 
         // Spawn a task that will repeatedly attempt to subscribe until successful
         // tokio::task::spawn(async move {
-            loop {
-                let track = tracks_writer.create(sync_track_name).unwrap();
-                match subscriber.subscribe(track).await {
-                    Ok(_) => {
-                        // Successfully subscribed
-                        break;
-                    }
-                    Err(err) => {
-                        warn!("failed to subscribe to sync track: {err:?}, retrying in 2s");
-                    }
+        println!("ENTERING THE LOOOPP");
+        loop {
+            let track = tracks_writer.create(sync_track_name).unwrap();
+            println!("OH YEAH LOOPING1");
+
+            match subscriber.subscribe_sync(track).await {
+                Ok(()) => {
+                    // Successfully subscribed (no additional data returned)
+                    println!("OK MESSAGE CAME, QUITTING FROM LOOP");
+                    break;
                 }
-
-                // Re-create the track handle each attempt
-                
-
-                sleep(Duration::from_secs(2)).await;
+                Err(err) => {
+                    // Failed to subscribe, handle the error
+                    warn!("Failed to subscribe to sync track: {err:?}, retrying in 2s");
+                }
             }
+
+            // Re-create the track handle each attempt
+            sleep(Duration::from_secs(2)).await;
+        }
+
+
         // });
 
         // Obtain the TrackReader for "sync-track"
