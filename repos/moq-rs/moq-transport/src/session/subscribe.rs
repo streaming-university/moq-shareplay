@@ -41,7 +41,47 @@ pub struct Subscribe {
 }
 
 impl Subscribe {
-	pub(super) fn new(mut subscriber: Subscriber, id: u64, track: TrackWriter) -> (Subscribe, SubscribeRecv) {
+	pub(super) fn new_absolute_start(mut subscriber: Subscriber, id: u64, track: TrackWriter, start_group: u64, start_object: u64) -> (Subscribe, SubscribeRecv) {
+		subscriber.send_message(message::Subscribe {
+			id,
+			track_alias: id,
+			track_namespace: track.namespace.clone(),
+			track_name: track.name.clone(),
+			filter_type: FilterType::AbsoluteStart,
+			start: Some(SubscribePair {
+				group: SubscribeLocation::Absolute(start_group),
+				object: SubscribeLocation::Absolute(start_object),
+			}),
+			end: Some(SubscribePair {
+				group: SubscribeLocation::None,
+				object: SubscribeLocation::None,
+			}),
+			params: Default::default(),
+		});
+
+		let info = SubscribeInfo {
+			namespace: track.namespace.clone(),
+			name: track.name.clone(),
+		};
+
+		let (send, recv) = State::default().split();
+
+		let send = Subscribe {
+			state: send,
+			subscriber,
+			id,
+			info,
+		};
+
+		let recv = SubscribeRecv {
+			state: recv,
+			writer: Some(track.into()),
+		};
+
+		(send, recv)
+	}
+
+	pub(super) fn new_latest_group(mut subscriber: Subscriber, id: u64, track: TrackWriter) -> (Subscribe, SubscribeRecv) {
 		subscriber.send_message(message::Subscribe {
 			id,
 			track_alias: id,

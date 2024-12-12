@@ -85,11 +85,11 @@ export class Player {
 		await Promise.all(Array.from(inits).map((init) => this.#runInit(...init)))
 
 		// Call #runTrack on each track
-		await Promise.all(tracks.map((track) => this.#runTrack(track)))
+		await Promise.all(tracks.map((track) => this.#runTrack(track, 0, 0)))
 	}
 
 	async #runInit(namespace: string, name: string) {
-		const sub = await this.#connection.subscribe(namespace, name)
+		const sub = await this.#connection.subscribeWithAbsolute(namespace, name, 0, 0)
 		try {
 			const init = await Promise.race([sub.data(), this.#running])
 			if (!init) throw new Error("no init data")
@@ -105,9 +105,9 @@ export class Player {
 		}
 	}
 
-	async #runTrack(track: Catalog.Track) {
+	async #runTrack(track: Catalog.Track, startGroup: number, startObject: number) {
 		if (!track.namespace) throw new Error("track has no namespace")
-		const sub = await this.#connection.subscribe(track.namespace, track.name)
+		const sub = await this.#connection.subscribeWithAbsolute(track.namespace, track.name, startGroup, startObject)
 
 		try {
 			for (;;) {
@@ -187,12 +187,12 @@ export class Player {
 		}
 	}
 
-	async resubscribe() {
+	async resubscribe(startGroup: number, startObject: number) {
 		try {
 			// Resubscribe to all tracks concurrently
 			const reSubscriptions = this.#catalog.tracks.map(async (track) => {
 				if (!track.namespace) throw new Error("track namespace is missing")
-				await this.#runTrack(track)
+				await this.#runTrack(track, startGroup, startObject)
 			})
 
 			await Promise.all(reSubscriptions)
