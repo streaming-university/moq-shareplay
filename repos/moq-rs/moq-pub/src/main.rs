@@ -86,7 +86,7 @@ async fn main() -> anyhow::Result<()> {
 			
 	tokio::select! {
 		res = session.run() => res.context("session error")?,
-		res = run_media(media) => res.context("media error")?,
+		res = run_media_from_group(media, Some(10000), Some(0)) => res.context("media error")?,
 		res = publisher.announce(reader) => res.context("publisher error")?,
 		res = syncer.run() => res.context("syncer error")?,
 		// res = subscribe_sync_track(tracks_reader) => res.context("subscriber error")?,
@@ -124,6 +124,145 @@ async fn main() -> anyhow::Result<()> {
 //     }
 //     Ok(buf)
 // }
+
+async fn run_media_from_group(mut media: Media, start_group: Option<u32>, start_object: Option<u32>) -> anyhow::Result<()> {
+	log::debug!(
+		"Starting run_media with start_group: {:?}, start_object: {:?}",
+		start_group,
+		start_object
+	);
+
+	// Directory containing atom files
+	let dir_path = env::current_dir()?.join("atoms");
+	let dir = dir_path.to_str().unwrap();
+
+	// Collect and sort atom files
+	let mut atom_files: Vec<PathBuf> = fs::read_dir(dir)
+		.context("Failed to read atom directory")?
+		.filter_map(|entry| entry.ok().map(|e| e.path()))
+		.filter(|path| {
+			let file_name = path.file_name().unwrap().to_str().unwrap();
+			file_name.contains('_') && file_name.split('_').next().unwrap().parse::<u32>().is_ok()
+		})
+		.collect();
+
+	atom_files.sort_by_key(|path| {
+		let file_name = path.file_name().unwrap().to_str().unwrap();
+		file_name.split('_').next().unwrap().parse::<u32>().unwrap()
+	});
+
+	//log::debug!("Sorted atom files: {:?}", atom_files);
+
+	// Separate initialization and frame atoms
+	let mut init_atoms = Vec::new();
+	let mut frame_atoms = Vec::new();
+
+	for file_path in atom_files {
+		let file_name = file_path.file_name().unwrap().to_str().unwrap();
+		if file_name.contains("ftyp") || file_name.contains("moov") {
+			init_atoms.push(file_path);
+		} else if file_name.contains("moof") || file_name.contains("mdat") {
+			frame_atoms.push(file_path);
+		}
+	}
+
+	//log::debug!("Initialization atoms: {:?}", init_atoms);
+	//log::debug!("Frame atoms: {:?}", frame_atoms);
+
+	// Send initialization atoms only once
+	let mut atoms = Vec::new();
+	for init_atom in init_atoms {
+		let mut file = File::open(&init_atom).await.context("Failed to open init atom file")?;
+		let mut atom_data = Vec::new();
+		file.read_to_end(&mut atom_data)
+			.await
+			.context("Failed to read init atom file")?;
+		atoms.push(Bytes::from(atom_data));
+		//log::debug!("Read init atom: {:?}", init_atom);
+	}
+	log::debug!("Sending initialization atoms to media.");
+	media.read_atoms_directly(atoms)?;
+
+	// Determine the starting frame index
+	let mut frame_index = 0;
+	if let Some(start_group) = start_group {
+		// log::debug!("Finding start_group: {}", start_group);
+		for (index, frame_path) in frame_atoms.iter().enumerate() {
+			let file_name = frame_path.file_name().unwrap().to_str().unwrap();
+			if let Ok(group_number) = file_name.split('_').next().unwrap().parse::<u32>() {
+				//log::debug!("Found group: {} at index {}", group_number, index);
+				if group_number >= start_group {
+					frame_index = index;
+					break;
+				}
+			}
+		}
+	}
+	log::debug!("Starting playback from frame index: {}", frame_index);
+
+	// Skip all frames before the start index
+	frame_atoms = frame_atoms.into_iter().skip(frame_index).collect();
+	//log::debug!("Frames after skipping: {:?}", frame_atoms);
+
+	// Playback parameters
+	let batch_size = 1;
+	let target_fps = 86.0;
+	let frame_delay = Duration::from_secs_f64(1.0 / target_fps);
+	let batch_delay = frame_delay * batch_size as u32;
+
+	// Start playback loop
+	let start_time = Instant::now();
+	let mut total_frames = 0;
+
+	while total_frames < frame_atoms.len() {
+		let mut batch = Vec::new();
+
+		// Collect a batch of frames
+		for _ in 0..batch_size {
+			if total_frames < frame_atoms.len()
+				&& frame_atoms[total_frames]
+					.file_name()
+					.unwrap()
+					.to_str()
+					.unwrap()
+					.contains("moof")
+			{
+				let mut frame_pair = Vec::new();
+
+				for offset in 0..2 {
+					if total_frames + offset < frame_atoms.len() {
+						let mut file = File::open(&frame_atoms[total_frames + offset])
+							.await
+							.context("Failed to open frame atom file")?;
+						let mut atom_data = Vec::new();
+						file.read_to_end(&mut atom_data)
+							.await
+							.context("Failed to read frame atom file")?;
+						frame_pair.push(Bytes::from(atom_data));
+					}
+				}
+				batch.push(frame_pair);
+				total_frames += 2;
+			} else {
+				total_frames += 1;
+			}
+		}
+
+		// Send frames to media
+		for frame_pair in batch {
+			media.read_atoms_directly(frame_pair)?;
+		}
+
+		// Log playback metrics
+		let elapsed = start_time.elapsed().as_secs_f64();
+		let fps = total_frames as f64 / elapsed;
+
+		tokio::time::sleep(batch_delay).await;
+	}
+
+	log::debug!("Completed playback for all frames.");
+	Ok(())
+}
 
 async fn run_media(mut media: Media) -> anyhow::Result<()> {
 	//TODO: The saving logic of the atoms should be moved to pipe
