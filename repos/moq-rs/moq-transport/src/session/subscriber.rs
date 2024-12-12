@@ -71,10 +71,6 @@ impl Subscriber {
 		send.closed_sync().await
 	}
 
-<<<<<<< HEAD
-=======
-
->>>>>>> 03ae1b6 (We can send a message to the publisher from the client :)))
 	pub(super) fn send_message<M: Into<message::Subscriber>>(&mut self, msg: M) {
 		let msg = msg.into();
 
