@@ -176,7 +176,7 @@ export class Player {
 			for (const track of this.#catalog.tracks) {
 				if (!track.namespace) throw new Error("Track has no namespace")
 
-				await this.#connection.unsubscribe(track.namespace, track.name)
+				await this.#connection.unsubscribe(track.namespace, track.name) //Does not unsubscribe from the sync-track
 			}
 
 			await this.#backend.pause()

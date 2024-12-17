@@ -156,7 +156,7 @@ export default function Watch(props: { name: string }) {
 		}
 	}
 
-	const subscirbeToSyncTrack = async () => {
+	const subscribeToSyncTrack = async () => {
 		// Get the Connection object
 		const connection = usePlayer()?.getConnection()
 
@@ -199,13 +199,13 @@ export default function Watch(props: { name: string }) {
 			if(clientId === 0) {
 				await announceSyncNamespace()
 				await createTrackWriter()
-				await subscirbeToSyncTrack()
+				await subscribeToSyncTrack()
 			}else{
-				await subscirbeToSyncTrack()
+				await subscribeToSyncTrack()
 			}
 
 		}catch(err){
-			console.error("SSSSSSSSSSSSSSSSSS")
+			console.error("Error running client: ", err)
 		}
 
 	}
@@ -228,6 +228,10 @@ export default function Watch(props: { name: string }) {
 		usePlayer()?.resubscribe().catch(setError)
 	}
 
+	const sendTrackStatusRequest = () => { //Trial
+		usePlayer()?.getConnection()?.sendTrackStatusRequest(syncNamespace, syncTrackName)
+	}
+
 	// The JSON catalog for debugging.
 	const catalog = createMemo(() => {
 		const player = usePlayer()
@@ -244,16 +248,16 @@ export default function Watch(props: { name: string }) {
 			<canvas ref={canvas} onClick={play} />
 
 			<div class="controls">
-    <label for="messageInput">Custom Message:</label>
-    <input
-        id="messageInput"
-        type="text"
-        placeholder="Enter your message"
-        value={messageInput()}
-        onInput={(e) => setMessageInput(e.currentTarget.value)} // Update the signal
-    />
-    <button class="controls-button" onClick={sendMessage}>Send Custom Message</button>
-</div>
+				<label for="messageInput">Custom Message:</label>
+				<input
+					id="messageInput"
+					type="text"
+					placeholder="Enter your message"
+					value={messageInput()}
+					onInput={(e) => setMessageInput(e.currentTarget.value)} // Update the signal
+				/>
+				<button class="controls-button" onClick={sendMessage}>Send Message</button>
+			</div>
 			<div class="volume-control">
 				<label>Volume</label>
 				<input
@@ -279,10 +283,8 @@ export default function Watch(props: { name: string }) {
 			</div>
 
 			<div class="controls">
-				<button class="controls-button" onClick={sendMessage}>Send Message</button>
+				<button class="controls-button" onClick={sendTrackStatusRequest}>Send Track Status Request</button> //Trial
 			</div>
-
-
 		</>
 	)
 }

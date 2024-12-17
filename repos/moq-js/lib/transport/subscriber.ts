@@ -99,6 +99,14 @@ export class Subscriber {
 		console.warn(`No subscription found for track: ${track} in namespace: ${namespace}`)
 	}
 
+	async sendTrackStatusRequest(namespace: string, track: string) {
+		await this.#control.send({
+			kind: Control.Msg.TrackStatusRequest,
+			namespace: namespace,
+			name: track,
+		})
+	}
+
 	recvSubscribeOk(msg: Control.SubscribeOk) {
 		const subscribe = this.#subscribe.get(msg.id)
 		if (!subscribe) {

@@ -3,11 +3,15 @@ import { Reader, Writer } from "./stream"
 export type Message = Subscriber | Publisher
 
 // Sent by subscriber
-export type Subscriber = Subscribe | Unsubscribe | AnnounceOk | AnnounceError
+export type Subscriber = Subscribe | Unsubscribe | AnnounceOk | AnnounceError | TrackStatusRequest
 
 export function isSubscriber(m: Message): m is Subscriber {
 	return (
-		m.kind == Msg.Subscribe || m.kind == Msg.Unsubscribe || m.kind == Msg.AnnounceOk || m.kind == Msg.AnnounceError
+		m.kind == Msg.Subscribe ||
+		m.kind == Msg.Unsubscribe ||
+		m.kind == Msg.AnnounceOk ||
+		m.kind == Msg.AnnounceError ||
+		m.kind == Msg.TrackStatusRequest
 	)
 }
 
@@ -39,6 +43,7 @@ export enum Msg {
 	AnnounceError = "announce_error",
 	Unannounce = "unannounce",
 	GoAway = "go_away",
+	TrackStatusRequest = "track_status_request",
 }
 
 enum Id {
@@ -56,6 +61,7 @@ enum Id {
 	AnnounceError = 0x8,
 	Unannounce = 0x9,
 	GoAway = 0x10,
+	TrackStatusRequest = 0xd,
 }
 
 export interface Subscribe {
@@ -145,6 +151,12 @@ export interface AnnounceError {
 export interface Unannounce {
 	kind: Msg.Unannounce
 	namespace: string
+}
+
+export interface TrackStatusRequest {
+	kind: Msg.TrackStatusRequest
+	namespace: string
+	name: string
 }
 
 export class Stream {
@@ -437,6 +449,8 @@ export class Encoder {
 				return this.announce_error(m)
 			case Msg.Unannounce:
 				return this.unannounce(m)
+			case Msg.TrackStatusRequest:
+				return this.track_status_request(m)
 		}
 	}
 
@@ -546,5 +560,11 @@ export class Encoder {
 	async unannounce(a: Unannounce) {
 		await this.w.u53(Id.Unannounce)
 		await this.w.string(a.namespace)
+	}
+
+	async track_status_request(a: TrackStatusRequest) {
+		await this.w.u53(Id.TrackStatusRequest)
+		await this.w.string(a.namespace)
+		await this.w.string(a.name)
 	}
 }

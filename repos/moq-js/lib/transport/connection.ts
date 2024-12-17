@@ -67,6 +67,14 @@ export class Connection {
 		return this.#publisher.subscribed()
 	}
 
+	async unsubscribe(namespace: string, track: string) {
+		await this.#subscriber.unsubscribe(namespace, track)
+	}
+
+	async sendTrackStatusRequest(namespace: string, track: string) {
+		await this.#subscriber.sendTrackStatusRequest(namespace, track)
+	}
+
 	async #runControl() {
 		// Receive messages until the connection is closed.
 		for (;;) {
@@ -82,10 +90,6 @@ export class Connection {
 
 			await this.#subscriber.recvObject(obj)
 		}
-	}
-
-	async unsubscribe(namespace: string, track: string) {
-		await this.#subscriber.unsubscribe(namespace, track)
 	}
 
 	async #recv(msg: Control.Message) {
