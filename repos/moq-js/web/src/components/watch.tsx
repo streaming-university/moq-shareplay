@@ -20,7 +20,7 @@ export default function Watch(props: { name: string }) {
 	const [showCatalog, setShowCatalog] = createSignal(false)
 	const [volume, setVolume] = createSignal(50)
 	const [reader, setReader] = createSignal<TrackReader | undefined>()
-	
+	const [messageInput, setMessageInput] = createSignal("")
 	let clientId = -1 // Default to invalid ID
 	if (urlSearchParams.has("master")) {
 		clientId = 0 // Master gets ID 0
@@ -112,13 +112,13 @@ export default function Watch(props: { name: string }) {
 			return
 		}
 
-		try{	
+		try{
 			// Get the Connection object
 			const connection = usePlayer()?.getConnection()
-	
+
 			// Announce a new namespace
 			const announceSend = await connection?.announce(syncNamespace)
-	
+
 			// Wait for the announce to be acknowledged
 			await announceSend?.ok()
 
@@ -131,7 +131,7 @@ export default function Watch(props: { name: string }) {
 				console.error("Error announcing sync namespace:", err);
 			}
 		}
-		
+
 	}
 
 	const syncTrackListener = async () => {
@@ -173,22 +173,25 @@ export default function Watch(props: { name: string }) {
 
 	const sendMessage = async () => {
 		const sender = clientId === 0 ? "Master" : `Slave ${clientId}`
-		const testMessage = `Hello, this message is sent by ${sender}!`
-		const payload = new TextEncoder().encode(testMessage)
+		const customMessage = messageInput() // Get message from textbox
+		const finalMessage = `Message from ${sender}: ${customMessage}`
 
-		try{
+		const payload = new TextEncoder().encode(customMessage)
+
+		try {
 			// Send the message as a TrackChunk
 			await trackWriter.write({
 				group: groupNumber,
 				object: objectNumber++,
 				payload: payload,
 			})
-		}catch(err){
+			console.log("Message sent successfully")
+		} catch (err) {
 			console.error("Error sending message: ", err)
 		}
-		
 
-		console.log("Message sent successfully")
+		// Clear the input field after sending
+		setMessageInput("")
 	}
 
 	const runClient = async () => {
@@ -196,15 +199,15 @@ export default function Watch(props: { name: string }) {
 			if(clientId === 0) {
 				await announceSyncNamespace()
 				await createTrackWriter()
-				await subscirbeToSyncTrack()	
+				await subscirbeToSyncTrack()
 			}else{
 				await subscirbeToSyncTrack()
 			}
-			
+
 		}catch(err){
 			console.error("SSSSSSSSSSSSSSSSSS")
 		}
-		
+
 	}
 
 	const changeVolume = (event: Event) => {
@@ -240,6 +243,17 @@ export default function Watch(props: { name: string }) {
 		<>
 			<canvas ref={canvas} onClick={play} />
 
+			<div class="controls">
+    <label for="messageInput">Custom Message:</label>
+    <input
+        id="messageInput"
+        type="text"
+        placeholder="Enter your message"
+        value={messageInput()}
+        onInput={(e) => setMessageInput(e.currentTarget.value)} // Update the signal
+    />
+    <button class="controls-button" onClick={sendMessage}>Send Custom Message</button>
+</div>
 			<div class="volume-control">
 				<label>Volume</label>
 				<input
@@ -267,6 +281,8 @@ export default function Watch(props: { name: string }) {
 			<div class="controls">
 				<button class="controls-button" onClick={sendMessage}>Send Message</button>
 			</div>
+
+
 		</>
 	)
 }

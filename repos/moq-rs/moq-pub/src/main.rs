@@ -14,6 +14,9 @@ use moq_transport::session::Subscriber;
 
 use moq_transport::serve::{TrackReaderMode, TracksReader};
 
+
+use tokio::sync::{watch, Mutex};
+use std::sync::Arc;
 // use moq_transport::serve::Tracks;
 
 #[derive(Parser, Clone)]
@@ -83,17 +86,32 @@ async fn main() -> anyhow::Result<()> {
 	// let track = tracks_reader.subscribe("sync-track").context("no sync track")?;
 
 	let mut syncer = SubToSync::new(subscriber, tracks).await?;
-			
+let (sync_value_tx, sync_value_rx) = watch::channel(String::new());
+
+let sync_value_rx = Arc::new(Mutex::new(sync_value_rx));
+
+let sync_value_rx_clone = Arc::clone(&sync_value_rx);
+tokio::spawn(async move {
+    let mut rx = sync_value_rx_clone.lock().await;
+    while rx.changed().await.is_ok() {
+        let value = rx.borrow();
+        println!("Received message in the moq-pub: {}", *value);
+    }
+});
 	tokio::select! {
 		res = session.run() => res.context("session error")?,
 		res = run_media_from_group(media, Some(10000), Some(0)) => res.context("media error")?,
 		res = publisher.announce(reader) => res.context("publisher error")?,
-		res = syncer.run() => res.context("syncer error")?,
+		//res = syncer.run() => res.context("syncer error")?,
+        res = syncer.run_with_a_channel(sync_value_tx) => res.context("syncer error")?,
 		// res = subscribe_sync_track(tracks_reader) => res.context("subscriber error")?,
 	}
 
 	Ok(())
 }
+
+
+
 
 // pub async fn subscribe_sync_track(mut broadcast: TracksReader) -> anyhow::Result<()> {
 //     // Subscribe to the existing sync-track (already in the sync-namespace)
