@@ -259,7 +259,7 @@ async fn run_media_from_group_with_a_channel(mut media: Media, start_group: Opti
 						);
 					}
 				} else {
-					log::error!(
+					log::warn!(
 						"Failed to parse new start_group from sync_value_rx: {}",
 						*new_value
 					);

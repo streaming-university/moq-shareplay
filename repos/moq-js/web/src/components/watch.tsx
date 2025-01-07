@@ -17,7 +17,10 @@ export default function Watch(props: { name: string }) {
 
 	const [usePlayer, setPlayer] = createSignal<Player | undefined>()
 	const [showCatalog, setShowCatalog] = createSignal(false)
-  const [isPaused, setIsPaused] = createSignal(false)
+	const [isPaused, setIsPaused] = createSignal(false)
+	const [isAnnounced, setIsAnnounced] = createSignal(false)
+	const [isTrackWriterCreated, setIsTrackWriterCreated] = createSignal(false)
+	const [isSubscribed, setIsSubscribed] = createSignal(false)
 	const [volume, setVolume] = createSignal(50)
 	const [reader, setReader] = createSignal<TrackReader | undefined>()
 	const [messageInput, setMessageInput] = createSignal("")
@@ -59,14 +62,14 @@ export default function Watch(props: { name: string }) {
 		const url = `https://${server}`
 
 		const initialVolume = 50; // Set your desired initial volume (0–100)
-  const slider = document.querySelector(".volume-control input[type='range']") as HTMLInputElement;
+		const slider = document.querySelector(".volume-control input[type='range']") as HTMLInputElement;
 
-  if (slider) {
-    slider.value = `${initialVolume}`; // Set slider value
-    slider.style.setProperty("--volume-percent", `${initialVolume}%`); // Set initial CSS variable
-    setVolume(initialVolume); // Update state
-    usePlayer()?.setVolume(initialVolume / 100); // Set player volume
-  }
+		if (slider) {
+			slider.value = `${initialVolume}`; // Set slider value
+			slider.style.setProperty("--volume-percent", `${initialVolume}%`); // Set initial CSS variable
+			setVolume(initialVolume); // Update state
+			usePlayer()?.setVolume(initialVolume / 100); // Set player volume
+		}
 
 		// Special case localhost to fetch the TLS fingerprint from the server.
 		// TODO remove this when WebTransport correctly supports self-signed certificates
@@ -84,35 +87,39 @@ export default function Watch(props: { name: string }) {
 	})
 
 	const createTrackWriter = async () => {
+		if(isTrackWriterCreated()){
+			return
+		}
 
-		try{
+		try {
 			const connection = usePlayer()?.getConnection()
 
 			// Publisher waits for a subscription
-      const subscription = await connection?.subscribed()
+			const subscription = await connection?.subscribed()
 
-      // Acknowledge the subscription
+			// Acknowledge the subscription
 			await subscription?.ack()
 
-      // Create a TrackWriter to send messages
+			// Create a TrackWriter to send messages
 			const writer = await subscription?.serve()
 
-      if (!writer) {
+			if (!writer) {
 				console.error("Failed to subscribe")
 				return
 			}
 
-      trackWriter = writer
+			trackWriter = writer
 
-      console.log("TrackWriter successfully created!")
+			console.log("TrackWriter successfully created!")
 
-		}catch(err){
+		} catch (err) {
 			if (err instanceof Error && err.message.includes("not yet locked to a reader")) {
 				console.warn(`TrackWriter already created for sending messages.`);
 			} else {
 				console.error("Error creating TrackWriter: ", err);
 			}
 		}
+		setIsTrackWriterCreated(true)
 
 	}
 
@@ -121,8 +128,11 @@ export default function Watch(props: { name: string }) {
 			// console.error("Only the master can announce a sync track")
 			return
 		}
+		if(isAnnounced()){
+			return
+		}
 
-		try{
+		try {
 			// Get the Connection object
 			const connection = usePlayer()?.getConnection()
 
@@ -134,13 +144,14 @@ export default function Watch(props: { name: string }) {
 
 			console.log(`Sync namespace (${syncNamespace}) successfully announced!`)
 
-		}catch(err){
+		} catch (err) {
 			if (err instanceof Error && err.message.includes("already announce: sync-namespace")) {
 				console.warn(`Sync namespace (${syncNamespace}) already announced`);
 			} else {
 				console.error("Error announcing sync namespace:", err);
 			}
 		}
+		setIsAnnounced(true)
 
 	}
 
@@ -159,18 +170,22 @@ export default function Watch(props: { name: string }) {
 						const message = new TextDecoder().decode(chunk.payload)
 						console.log(`Received message: ${message}`)
 
-            if(message === "play" && clientId !== 0) {
-              handleContinue();
-            }else if(message === "pause" && clientId !== 0) {
-              pause();
-            }
+						if (message === "play" && clientId !== 0) {
+							handleContinue();
+						} else if (message === "pause" && clientId !== 0) {
+							pause();
+						}
 
-              const chatMessages = document.querySelector(".chat-messages")
-              const messageElement = document.createElement("div")
-              messageElement.textContent = message
-              chatMessages?.appendChild(messageElement)
+						const chatMessages = document.querySelector(".chat-messages")
+						const messageElement = document.createElement("div")
+						if (!isNaN(Number(message))) {
+							messageElement.textContent = `[Master via Sync-track] : Go to ${message}th fragment`
+						} else {
+							messageElement.textContent = `[Master via Sync-track] : ${message}`
+						}
+						chatMessages?.appendChild(messageElement)
+					}
 				}
-      }
 			} catch (err) {
 				console.error("Error reading chunk:", err)
 			}
@@ -178,6 +193,10 @@ export default function Watch(props: { name: string }) {
 	}
 
 	const subscribeToSyncTrack = async () => {
+		if(isSubscribed()){
+			return
+		}
+
 		// Get the Connection object
 		const connection = usePlayer()?.getConnection()
 
@@ -190,8 +209,9 @@ export default function Watch(props: { name: string }) {
 			return
 		}
 		subscriber = sub
-
+		setIsSubscribed(true)
 		syncTrackListener()
+		
 	}
 
 	const sendFrameMessage = async (frame: string) => {
@@ -237,7 +257,7 @@ export default function Watch(props: { name: string }) {
 		setMessageInput("")
 	}
 
-  const sendSyncMessage = async (action: string) => {
+	const sendSyncMessage = async (action: string) => {
 		let payload = new TextEncoder().encode(action)
 
 		try {
@@ -252,7 +272,7 @@ export default function Watch(props: { name: string }) {
 			console.error("Error sending message: ", err)
 		}
 
-    payload = new TextEncoder().encode(action)
+		payload = new TextEncoder().encode(action)
 		try {
 			// Send the message as a TrackChunk
 			await trackWriter.write({
@@ -267,29 +287,29 @@ export default function Watch(props: { name: string }) {
 	}
 
 	const runClient = async () => {
-		try{
-			if(clientId===0) {
-    		    await announceSyncNamespace()
-        		await createTrackWriter()
+		try {
+			if (clientId === 0) {
+				await announceSyncNamespace()
+				await createTrackWriter()
 			}
-        	await subscribeToSyncTrack()
+			await subscribeToSyncTrack()
 
-		}catch(err){
+		} catch (err) {
 			console.error("Error running client: ", err)
 		}
 	}
 
 	const changeVolume = (event: Event) => {
-    const volumeValue = (event.target as HTMLInputElement).value
-    setVolume(Number(volumeValue))
-    usePlayer()?.setVolume(Number(volumeValue) / 100)
+		const volumeValue = (event.target as HTMLInputElement).value
+		setVolume(Number(volumeValue))
+		usePlayer()?.setVolume(Number(volumeValue) / 100)
 
-    const slider = event.target as HTMLInputElement
-    slider.style.setProperty('--volume-percent', `${volumeValue}%`)
-  }
+		const slider = event.target as HTMLInputElement
+		slider.style.setProperty('--volume-percent', `${volumeValue}%`)
+	}
 
 	const play = () => {
-    setIsPaused(false);
+		setIsPaused(false);
 		usePlayer()?.play().catch(setError)
 	}
 
@@ -299,7 +319,7 @@ export default function Watch(props: { name: string }) {
 	}
 
 	const handleContinue = () => {
-    setIsPaused(false);
+		setIsPaused(false);
 		usePlayer()?.resubscribe().catch(setError)
 	}
 
@@ -318,90 +338,90 @@ export default function Watch(props: { name: string }) {
 
 	// NOTE: The canvas automatically has width/height set to the decoded video size.
 	// TODO shrink it if needed via CSS
-  return (
-    <>
-      <div class="youtube-layout">
-        <div class="video-section">
-          <div class="video-container">
-            <canvas ref={canvas} onClick={play} />
-          </div>
+	return (
+		<>
+			<div class="youtube-layout">
+				<div class="video-section">
+					<div class="video-container">
+						<canvas ref={canvas} onClick={play} />
+					</div>
 
-          <div class="video-info">
-            <div class="video-controls">
-              <div class="control-group">
-                <button
-                  class="controls-button play-pause-button"
-                  onClick={() => {
-                    if (isPaused()) {
-                      sendSyncMessage("play");
-                      handleContinue();
-                    } else {
-                      sendSyncMessage("pause");
-                      pause();
-                    }
-                  }}
-                  disabled={clientId !== 0}
-                >
-                  {isPaused() ? "⏵" : "⏸"}
-                </button>
-              </div>
+					<div class="video-info">
+						<div class="video-controls">
+							<div class="control-group">
+								<button
+									class="controls-button play-pause-button"
+									onClick={() => {
+										if (isPaused()) {
+											sendSyncMessage("play");
+											handleContinue();
+										} else {
+											sendSyncMessage("pause");
+											pause();
+										}
+									}}
+									disabled={clientId !== 0}
+								>
+									{isPaused() ? "⏵" : "⏸"}
+								</button>
+							</div>
 
-              <div class="control-group volume-control">
-                <label>Volume</label>
-                <input
-                  id="volume"
-                  type="range"
-                  min="0"
-                  max="100"
-                  value={volume()}
-                  onInput={changeVolume}
-                />
-              </div>
+							<div class="control-group volume-control">
+								<label>Volume</label>
+								<input
+									id="volume"
+									type="range"
+									min="0"
+									max="100"
+									value={volume()}
+									onInput={changeVolume}
+								/>
+							</div>
 
-              <div class="control-group">
-              <button class="controls-button" onClick={runClient}>
-              {clientId === 0 ? 'Announce Sync' : 'Subscribe Sync'}
-            </button>
-			<button class="controls-button" onClick={() => {sendFrameMessage("0")}}disabled={clientId !== 0}>
-              { '00:00' }
-            </button>
-			<button class="controls-button" onClick={() => {sendFrameMessage("10000")}}disabled={clientId !== 0}>
-              { '01:14'}
-            </button>
-			<button class="controls-button" onClick={() => {sendFrameMessage("20000")}}disabled={clientId !== 0}>
-              { '02:29' }
-            </button>
-              </div>
-            </div>
-          </div>
-        </div>
+							<div class="control-group">
+								<button class="controls-button" onClick={runClient}>
+									{clientId === 0 ? 'Announce Sync' : 'Subscribe Sync'}
+								</button>
+								<button class="controls-button" onClick={() => { sendFrameMessage("0") }} disabled={clientId !== 0}>
+									{'00:00'}
+								</button>
+								<button class="controls-button" onClick={() => { sendFrameMessage("10000") }} disabled={clientId !== 0}>
+									{'01:14'}
+								</button>
+								<button class="controls-button" onClick={() => { sendFrameMessage("20000") }} disabled={clientId !== 0}>
+									{'02:29'}
+								</button>
+							</div>
+						</div>
+					</div>
+				</div>
 
-        <div class="chat-section">
-          <div class="chat-header">
-            Live Media over QUIC Chat
-          </div>
-          <div class="chat-messages">
-            {/* Messages will appear here */}
-          </div>
-          <div class="message-input-container">
-		  {clientId === 0 && (
-			    <input
-				type="text"
-				class="message-input"
-				placeholder="Send a message..."
-				value={messageInput()}
-				onInput={(e) => setMessageInput(e.currentTarget.value)}
-			  />
-			)}
+				<div class="chat-section">
+					<div class="chat-header">
+						Live Media over QUIC Chat
+					</div>
+					<div class="chat-messages">
+						{/* Messages will appear here */}
+					</div>
+					<div class="message-input-container">
+						{clientId === 0 && (
+							<input
+								type="text"
+								class="message-input"
+								placeholder="Send a message..."
+								value={messageInput()}
+								onInput={(e) => setMessageInput(e.currentTarget.value)}
+							/>
+						)}
 
-            {clientId === 0 && (
- 				 <button class="send-button" onClick={sendMessage}>
-    				Send
-  				 </button>
-			)}
-          </div>
-        </div>
-      </div>
-    </>
-  )
-  }
+						{clientId === 0 && (
+							<button class="send-button" onClick={sendMessage}>
+								Send
+							</button>
+						)}
+					</div>
+				</div>
+			</div>
+		</>
+	)
+}
