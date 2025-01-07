@@ -1,10 +1,9 @@
 /* eslint-disable jsx-a11y/media-has-caption */
 import { Player } from "@kixelated/moq/playback/player"
-
 import { createEffect, createMemo, createSignal, onCleanup, Show } from "solid-js"
-
 import { TrackReader, TrackWriter, type TrackChunk } from '../../../lib/transport/objects'
 import { SubscribeSend } from '../../../lib/transport/subscriber'
+import './watch.css'
 
 export default function Watch(props: { name: string }) {
 	// Use query params to allow overriding environment variables.
@@ -18,6 +17,7 @@ export default function Watch(props: { name: string }) {
 
 	const [usePlayer, setPlayer] = createSignal<Player | undefined>()
 	const [showCatalog, setShowCatalog] = createSignal(false)
+  const [isPaused, setIsPaused] = createSignal(false)
 	const [volume, setVolume] = createSignal(50)
 	const [reader, setReader] = createSignal<TrackReader | undefined>()
 	const [messageInput, setMessageInput] = createSignal("")
@@ -50,8 +50,8 @@ export default function Watch(props: { name: string }) {
 	const syncNamespace = 'sync-namespace'
 	let trackWriter!: TrackWriter
 	let subscriber!: SubscribeSend
-	let objectNumber = clientId === 0 ? 0 : 100
-	let groupNumber = clientId === 0 ? 0 : 1
+	let objectNumber = 0//clientId === 0 ? 0 : 100
+	let groupNumber = 0//clientId === 0 ? 0 : 1
 	// ---------------------------------------------------------
 
 	createEffect(async () => {
@@ -77,24 +77,24 @@ export default function Watch(props: { name: string }) {
 
 		try{
 			const connection = usePlayer()?.getConnection()
-			console.warn("1")
+			
 			// Publisher waits for a subscription
-			const subscription = await connection?.subscribed()
-			console.warn("2")
-			// Acknowledge the subscription
+      const subscription = await connection?.subscribed()
+    	
+      // Acknowledge the subscription
 			await subscription?.ack()
-			console.warn("3")
-			// Create a TrackWriter to send messages
+			
+      // Create a TrackWriter to send messages
 			const writer = await subscription?.serve()
-			console.warn("4")
-			if (!writer) {
-				console.error("Failed to subscribe AAAAAAAAAAA")
+			
+      if (!writer) {
+				console.error("Failed to subscribe")
 				return
 			}
-			console.warn("5")
-			trackWriter = writer
-			console.warn("6")
-			console.log("TrackWriter successfully created!")
+			
+      trackWriter = writer
+			
+      console.log("TrackWriter successfully created!")
 
 		}catch(err){
 			if (err instanceof Error && err.message.includes("not yet locked to a reader")) {
@@ -103,7 +103,7 @@ export default function Watch(props: { name: string }) {
 				console.error("Error creating TrackWriter: ", err);
 			}
 		}
-		console.warn("7")
+	
 	}
 
 	const announceSyncNamespace = async () => {
@@ -148,8 +148,21 @@ export default function Watch(props: { name: string }) {
 					if (chunk.payload instanceof Uint8Array) {
 						const message = new TextDecoder().decode(chunk.payload)
 						console.log(`Received message: ${message}`)
-					}
+
+            if(message === "play" && clientId !== 0) {
+              handleContinue();
+            }else if(message === "pause" && clientId !== 0) {
+              pause();
+            }else if (message.startsWith("[")) {
+              const chatMessages = document.querySelector(".chat-messages")
+              const messageElement = document.createElement("div")
+              messageElement.textContent = message
+              chatMessages?.appendChild(messageElement)
+            }
+
+
 				}
+      }
 			} catch (err) {
 				console.error("Error reading chunk:", err)
 			}
@@ -162,6 +175,8 @@ export default function Watch(props: { name: string }) {
 
 		// Subscribe to our own track (since we don't have an external subscriber)
 		const sub = await connection?.subscribe(syncNamespace, syncTrackName)
+    
+
 		if (!sub) {
 			console.error("Failed to subscribe")
 			return
@@ -172,20 +187,20 @@ export default function Watch(props: { name: string }) {
 	}
 
 	const sendMessage = async () => {
-		const sender = clientId === 0 ? "Master" : `Slave ${clientId}`
-		const customMessage = messageInput() // Get message from textbox
-		const finalMessage = `Message from ${sender}: ${customMessage}`
-
+		const sender = clientId === 0 ? "Master" : `Slave-${clientId}`
+		const customMessage = `[${sender}] : ${messageInput()}` // Get message from textbox
+		
 		const payload = new TextEncoder().encode(customMessage)
 
 		try {
 			// Send the message as a TrackChunk
 			await trackWriter.write({
-				group: groupNumber,
+				group: groupNumber++,
 				object: objectNumber++,
 				payload: payload,
 			})
-			console.log("Message sent successfully")
+
+			console.log("Chat message sent successfully")
 		} catch (err) {
 			console.error("Error sending message: ", err)
 		}
@@ -193,38 +208,70 @@ export default function Watch(props: { name: string }) {
 		// Clear the input field after sending
 		setMessageInput("")
 	}
+  
+  const sendSyncMessage = async (action: string) => {
+		let payload = new TextEncoder().encode(action)
+
+		try {
+			// Send the message as a TrackChunk
+			await trackWriter.write({
+				group: groupNumber++,
+				object: objectNumber++,
+				payload: payload,
+			})
+			console.log("Sync message sent successfully")
+		} catch (err) {
+			console.error("Error sending message: ", err)
+		}
+
+    payload = new TextEncoder().encode(`[Master via Sync Track] : ${action}`)
+		try {
+			// Send the message as a TrackChunk
+			await trackWriter.write({
+				group: groupNumber++,
+				object: objectNumber++,
+				payload: payload,
+			})
+			console.log("Sync message sent successfully")
+		} catch (err) {
+			console.error("Error sending message: ", err)
+		}
+	}
 
 	const runClient = async () => {
 		try{
-			if(clientId === 0) {
-				await announceSyncNamespace()
-				await createTrackWriter()
-				await subscribeToSyncTrack()
-			}else{
-				await subscribeToSyncTrack()
-			}
+        await announceSyncNamespace()
+        await createTrackWriter()
+        await subscribeToSyncTrack()
+      
+      
 
 		}catch(err){
 			console.error("Error running client: ", err)
 		}
-
 	}
 
 	const changeVolume = (event: Event) => {
-		const volumeValue = (event.target as HTMLInputElement).value
-		setVolume(Number(volumeValue)) // Update the signal
-		usePlayer()?.setVolume(Number(volumeValue) / 100) // Adjust the player's volume
-	}
+    const volumeValue = (event.target as HTMLInputElement).value
+    setVolume(Number(volumeValue))
+    usePlayer()?.setVolume(Number(volumeValue) / 100)
+    
+    const slider = event.target as HTMLInputElement
+    slider.style.setProperty('--volume-percent', `${volumeValue}%`)
+  }
 
 	const play = () => {
+    setIsPaused(false);
 		usePlayer()?.play().catch(setError)
 	}
 
 	const pause = () => {
+    setIsPaused(true);
 		usePlayer()?.pause().catch(setError)
 	}
 
 	const handleContinue = () => {
+    setIsPaused(false);
 		usePlayer()?.resubscribe().catch(setError)
 	}
 
@@ -243,48 +290,76 @@ export default function Watch(props: { name: string }) {
 
 	// NOTE: The canvas automatically has width/height set to the decoded video size.
 	// TODO shrink it if needed via CSS
-	return (
-		<>
-			<canvas ref={canvas} onClick={play} />
-
-			<div class="controls">
-				<label for="messageInput">Custom Message:</label>
-				<input
-					id="messageInput"
-					type="text"
-					placeholder="Enter your message"
-					value={messageInput()}
-					onInput={(e) => setMessageInput(e.currentTarget.value)} // Update the signal
-				/>
-				<button class="controls-button" onClick={sendMessage}>Send Message</button>
-			</div>
-			<div class="volume-control">
-				<label>Volume</label>
-				<input
-					id="volume"
-					type="range"
-					min="0"
-					max="100"
-					value={volume()}
-					onInput={changeVolume}
-				/>
-			</div>
-
-			<div class="controls">
-				<button class="controls-button" onClick={pause}>Pause</button>
-			</div>
-
-			<div class="controls">
-				<button class="controls-button" onClick={handleContinue}>Continue</button>
-			</div>
-
-			<div class="controls">
-				<button class="controls-button" onClick={runClient}>Subscribe to Sync Track</button>
-			</div>
-
-			<div class="controls">
-				<button class="controls-button" onClick={sendTrackStatusRequest}>Send Track Status Request</button> //Trial
-			</div>
-		</>
-	)
-}
+  return (
+    <>
+      <div class="youtube-layout">
+        <div class="video-section">
+          <div class="video-container">
+            <canvas ref={canvas} onClick={play} />
+          </div>
+          
+          <div class="video-info">
+            <div class="video-controls">
+              <div class="control-group">
+                <button 
+                  class="controls-button play-pause-button" 
+                  onClick={() => {
+                    if (isPaused()) {
+                      sendSyncMessage("play");
+                      handleContinue();
+                    } else {
+                      sendSyncMessage("pause");
+                      pause();
+                    }
+                  }}
+                  disabled={clientId !== 0}
+                >
+                  {isPaused() ? "⏵" : "⏸"}
+                </button>
+              </div>
+  
+              <div class="control-group volume-control">
+                <label>Volume</label>
+                <input
+                  id="volume"
+                  type="range"
+                  min="0"
+                  max="100"
+                  value={volume()}
+                  onInput={changeVolume}
+                />
+              </div>
+  
+              <div class="control-group">
+              <button class="controls-button" onClick={runClient}>
+              {clientId === 0 ? 'Announce Sync' : 'Subscribe Sync'}
+            </button>
+              </div>
+            </div>
+          </div>
+        </div>
+  
+        <div class="chat-section">
+          <div class="chat-header">
+            Live Media over QUIC Chat
+          </div>
+          <div class="chat-messages">
+            {/* Messages will appear here */}
+          </div>
+          <div class="message-input-container">
+            <input
+              type="text"
+              class="message-input"
+              placeholder="Send a message..."
+              value={messageInput()}
+              onInput={(e) => setMessageInput(e.currentTarget.value)}
+            />
+            <button class="send-button" onClick={sendMessage}>
+              Send
+            </button>
+          </div>
+        </div>
+      </div>
+    </>
+  )
+  }
