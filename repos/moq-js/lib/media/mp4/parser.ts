@@ -50,7 +50,7 @@ export class Parser {
 		}
 	}
 
-	decode(chunk: Uint8Array): Array<Frame> {
+	decode(chunk: Uint8Array) {
 		const copy = new Uint8Array(chunk)
 
 		// For some reason we need to modify the underlying ArrayBuffer with offset
@@ -66,6 +66,11 @@ export class Parser {
 		const samples = [...this.#samples]
 		this.#samples.length = 0
 
-		return samples
+		// const isKeyFrame = samples[0]?.sample.is_sync
+		// if (isKeyFrame !== undefined) {
+		// 	return { samples, isKeyFrame }
+		// }
+		 return { samples, isKeyFrame: true }
+
 	}
 }

@@ -1,12 +1,12 @@
 use bytes::{Bytes, BytesMut};
 use std::{env, fs, net, path::PathBuf};
 use url::Url;
-
+use std::io::Cursor;
 use anyhow::Context;
 use clap::Parser;
 use tokio::time::{Duration, Instant};
 use tokio::{fs::File, io::AsyncReadExt};
-
+use mp4::{self, ReadBox, TrackType};
 use moq_native::quic;
 use moq_pub::{Media, SubToSync};
 use moq_transport::{serve, serve::Tracks, session::Publisher};
@@ -146,9 +146,8 @@ tokio::spawn(async move {
 
 async fn run_media_from_group_with_a_channel(mut media: Media, start_group: Option<u32>, start_object: Option<u32>, mut sync_value_rx: watch::Receiver<String>,) -> anyhow::Result<()> {
 	log::debug!(
-		"Starting run_media with start_group: {:?}, start_object: {:?}",
-		start_group,
-		start_object
+		"Starting run_media with mdat : {:?}  request",
+		start_group
 	);
 
 	let dir_path = env::current_dir()?.join("atoms");
@@ -213,8 +212,8 @@ async fn run_media_from_group_with_a_channel(mut media: Media, start_group: Opti
 	frame_atoms_for_playback = frame_atoms.iter().cloned().skip(frame_index).collect();
 	//log::debug!("Frames after skipping: {:?}", frame_atoms);
 
-	let batch_size = 1;
-	let target_fps = 86.0;
+	let batch_size = 2;
+	let target_fps = 30.0;
 	let frame_delay = Duration::from_secs_f64(1.0 / target_fps);
 	let batch_delay = frame_delay * batch_size as u32;
 
@@ -235,7 +234,7 @@ async fn run_media_from_group_with_a_channel(mut media: Media, start_group: Opti
 					total_frames = 0;
 
 					if new_start_group >= 2 {
-						new_frame_index = Some((new_start_group - 2) as usize);
+						new_frame_index = Some((new_start_group) as usize);
 					} else {
 						new_frame_index = Some(0);
 					}
@@ -249,8 +248,8 @@ async fn run_media_from_group_with_a_channel(mut media: Media, start_group: Opti
 
 
 						log::info!(
-							"Updated frame_atoms for new start_group: {}",
-							new_start_group
+							"Updated frame_atoms for new start_group: {} at index {}",
+							new_start_group, frame_index
 						);
 					} else {
 						log::warn!(

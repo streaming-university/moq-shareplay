@@ -91,10 +91,12 @@ class Worker {
 				throw new Error(`invalid payload: ${chunk.payload}`)
 			}
 
-			const frames = container.decode(chunk.payload)
-			for (const frame of frames) {
-				await segment.write(frame)
-			}
+			const { samples, isKeyFrame } = container.decode(chunk.payload)
+			//if (isKeyFrame) {
+				for (const frame of samples) {
+					await segment.write(frame)
+				}
+			//}
 		}
 
 		// We done.
