@@ -25,6 +25,8 @@ export default function Watch(props: { name: string }) {
 	const [reader, setReader] = createSignal<TrackReader | undefined>()
 	const [messageInput, setMessageInput] = createSignal("")
 	let clientId = -1 // Default to invalid ID
+	const [sliderValue, setSliderValue] = createSignal(0)
+	const [hoverValue, setHoverValue] = createSignal(0)
 	if (urlSearchParams.has("master")) {
 		clientId = 0 // Master gets ID 0
 		console.log("Client is master with ID:", clientId)
@@ -211,7 +213,7 @@ export default function Watch(props: { name: string }) {
 		subscriber = sub
 		setIsSubscribed(true)
 		syncTrackListener()
-		
+
 	}
 
 	const sendFrameMessage = async (frame: string) => {
@@ -336,92 +338,151 @@ export default function Watch(props: { name: string }) {
 		return JSON.stringify(catalog, null, 2)
 	})
 
+	const formatTime = (seconds: number) => {
+		const minutes = Math.floor(seconds / 60);
+		const secs = seconds % 60;
+		return `${minutes}:${secs.toString().padStart(2, '0')}`;
+	};
+
 	// NOTE: The canvas automatically has width/height set to the decoded video size.
 	// TODO shrink it if needed via CSS
 	return (
 		<>
-			<div class="youtube-layout">
-				<div class="video-section">
-					<div class="video-container">
-						<canvas ref={canvas} onClick={play} />
-					</div>
+		  <div class="youtube-layout">
+			<div class="video-section">
+			  <div class="video-container">
+				<canvas ref={canvas} onClick={() => setIsPaused(!isPaused())} />
+				<div class="slider-overlay">
+				  <div class="slider-wrap">
+					<input
+					  id="time-slider"
+					  type="range"
+					  min="0"
+					  max="540"
+					  step="1"
+					  value={sliderValue()}
+					  onInput={(e) => {
+						const newSecond = (e.currentTarget as HTMLInputElement).valueAsNumber
+						setSliderValue(newSecond)
+						sendFrameMessage(String((newSecond) * 60))
+					  }}
+	// 				  onMouseMove={(e) => {
+	// 					const slider = e.currentTarget as HTMLInputElement;
+    // const rect = slider.getBoundingClientRect();
+    // const offsetX = e.clientX - rect.left;
+    // const percent = offsetX / rect.width;
 
-					<div class="video-info">
-						<div class="video-controls">
-							<div class="control-group">
-								<button
-									class="controls-button play-pause-button"
-									onClick={() => {
-										if (isPaused()) {
-											sendSyncMessage("play");
-											handleContinue();
-										} else {
-											sendSyncMessage("pause");
-											pause();
-										}
-									}}
-									disabled={clientId !== 0}
-								>
-									{isPaused() ? "⏵" : "⏸"}
-								</button>
-							</div>
+    // // Convert percentage into valid step values (snap to nearest step)
+    // const stepSize = 1; // Defined in the range input
+    // const maxValue = parseInt(slider.max, 10);
 
-							<div class="control-group volume-control">
-								<label>Volume</label>
-								<input
-									id="volume"
-									type="range"
-									min="0"
-									max="100"
-									value={volume()}
-									onInput={changeVolume}
-								/>
-							</div>
+    // let exactValue = Math.round((percent * maxValue) / stepSize) * stepSize;
 
-							<div class="control-group">
-								<button class="controls-button" onClick={runClient}>
-									{clientId === 0 ? 'Announce Sync' : 'Subscribe Sync'}
-								</button>
-								<button class="controls-button" onClick={() => { sendFrameMessage("0") }} disabled={clientId !== 0}>
-									{'00:00'}
-								</button>
-								<button class="controls-button" onClick={() => { sendFrameMessage("10000") }} disabled={clientId !== 0}>
-									{'01:14'}
-								</button>
-								<button class="controls-button" onClick={() => { sendFrameMessage("20000") }} disabled={clientId !== 0}>
-									{'02:29'}
-								</button>
-							</div>
-						</div>
-					</div>
+    // // Ensure the value is within bounds
+    // exactValue = Math.max(parseInt(slider.min, 10), Math.min(exactValue, maxValue));
+
+    // setHoverValue(exactValue);
+					 // }}
+					/>
+					<div class="tooltip" style={{ left: `${(sliderValue() / 540) * 100}%` }}>{formatTime(sliderValue())}</div>
+
+				  </div>
 				</div>
+			  </div>
 
-				<div class="chat-section">
-					<div class="chat-header">
-						Live Media over QUIC Chat
-					</div>
-					<div class="chat-messages">
-						{/* Messages will appear here */}
-					</div>
-					<div class="message-input-container">
-						{clientId === 0 && (
-							<input
-								type="text"
-								class="message-input"
-								placeholder="Send a message..."
-								value={messageInput()}
-								onInput={(e) => setMessageInput(e.currentTarget.value)}
-							/>
-						)}
+			  {/* Keep the rest of your controls here */}
+			  <div class="video-info">
+				<div class="video-controls">
+				  {/* PLAY/PAUSE */}
+				  <div class="control-group">
+					<button
+					  class="controls-button play-pause-button"
+					  onClick={() => {
+						if (isPaused()) {
+						  sendSyncMessage("play")
+						  handleContinue()
+						} else {
+						  sendSyncMessage("pause")
+						  pause()
+						}
+					  }}
+					  disabled={clientId !== 0}
+					>
+					  {isPaused() ? "⏵" : "⏸"}
+					</button>
+				  </div>
 
-						{clientId === 0 && (
-							<button class="send-button" onClick={sendMessage}>
-								Send
-							</button>
-						)}
-					</div>
+				  {/* VOLUME */}
+				  <div class="control-group volume-control">
+					<label>Volume</label>
+					<input
+					  id="volume"
+					  type="range"
+					  min="0"
+					  max="100"
+					  value={volume()}
+					  onInput={changeVolume}
+					/>
+				  </div>
+
+				  {/* SYNC + Quick Buttons */}
+				  <div class="control-group">
+					<button
+					  class="controls-button"
+					  onClick={runClient}
+					>
+					  {clientId === 0 ? "Announce Sync" : "Subscribe Sync"}
+					</button>
+					<button
+					  class="controls-button"
+					  onClick={() => sendFrameMessage("0")}
+					  disabled={clientId !== 0}
+					>
+					  00:00
+					</button>
+					<button
+					  class="controls-button"
+					  onClick={() => sendFrameMessage("10000")}
+					  disabled={clientId !== 0}
+					>
+					  01:14
+					</button>
+					<button
+					  class="controls-button"
+					  onClick={() => sendFrameMessage("20000")}
+					  disabled={clientId !== 0}
+					>
+					  02:29
+					</button>
+				  </div>
 				</div>
+			  </div>
 			</div>
+
+			{/* CHAT SECTION */}
+			<div class="chat-section">
+			  <div class="chat-header">Live Media over QUIC Chat</div>
+			  <div class="chat-messages">
+				{/* Messages will appear here */}
+			  </div>
+			  <div class="message-input-container">
+				{clientId === 0 && (
+				  <input
+					type="text"
+					class="message-input"
+					placeholder="Send a message..."
+					value={messageInput()}
+					onInput={(e) => setMessageInput(e.currentTarget.value)}
+				  />
+				)}
+				{clientId === 0 && (
+				  <button class="send-button" onClick={sendMessage}>
+					Send
+				  </button>
+				)}
+			  </div>
+			</div>
+		  </div>
 		</>
-	)
+	  )
 }
