@@ -352,10 +352,11 @@ canvas {
 
   #time-slider::-webkit-slider-thumb {
 	-webkit-appearance: none;
-	width: 16px;
-	height: 16px;
+	width: 10px;
+	height: 10px;
 	background: #fff;
 	border-radius: 50%;
+	pointer-events: none;
   }
 
   .tooltip {
@@ -370,7 +371,11 @@ canvas {
 	border-radius: 4px;
 	opacity: 0;
 	transition: opacity 0.1s;
-  }
+	-webkit-border-radius: 4px;
+	-moz-border-radius: 4px;
+	-ms-border-radius: 4px;
+	-o-border-radius: 4px;
+}
 
   .slider-wrap:hover .tooltip {
 	opacity: 1;

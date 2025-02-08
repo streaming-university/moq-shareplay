@@ -359,32 +359,30 @@ export default function Watch(props: { name: string }) {
 					  type="range"
 					  min="0"
 					  max="540"
-					  step="1"
-					  value={sliderValue()}
 					  onInput={(e) => {
-						const newSecond = (e.currentTarget as HTMLInputElement).valueAsNumber
-						setSliderValue(newSecond)
-						sendFrameMessage(String((newSecond) * 60))
+						setSliderValue(hoverValue)
+						sendFrameMessage(String(hoverValue() * 60));
 					  }}
-	// 				  onMouseMove={(e) => {
-	// 					const slider = e.currentTarget as HTMLInputElement;
-    // const rect = slider.getBoundingClientRect();
-    // const offsetX = e.clientX - rect.left;
-    // const percent = offsetX / rect.width;
+					  onMouseMove={(e) => {
+						const slider = e.currentTarget as HTMLInputElement;
+						const rect = slider.getBoundingClientRect();
+						const offsetX = e.clientX - rect.left;
+						const percent = offsetX / rect.width;
 
-    // // Convert percentage into valid step values (snap to nearest step)
-    // const stepSize = 1; // Defined in the range input
-    // const maxValue = parseInt(slider.max, 10);
+						const minValue = parseFloat(slider.min);
+						const maxValue = parseFloat(slider.max);
+						const stepSize = parseFloat(slider.step) || 1;
 
-    // let exactValue = Math.round((percent * maxValue) / stepSize) * stepSize;
+						let newSecond = minValue + percent * (maxValue - minValue);
+						const snappedValue = Math.round(newSecond / stepSize) * stepSize;
+						const boundedValue = Math.max(minValue, Math.min(snappedValue, maxValue));
 
-    // // Ensure the value is within bounds
-    // exactValue = Math.max(parseInt(slider.min, 10), Math.min(exactValue, maxValue));
 
-    // setHoverValue(exactValue);
-					 // }}
+						setHoverValue(boundedValue);
+					}}
+
 					/>
-					<div class="tooltip" style={{ left: `${(sliderValue() / 540) * 100}%` }}>{formatTime(sliderValue())}</div>
+					<div class="tooltip" style={{ left: `${(hoverValue() / 540) * 100}%` }}>{formatTime(hoverValue())}</div>
 
 				  </div>
 				</div>
