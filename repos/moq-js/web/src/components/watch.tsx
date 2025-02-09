@@ -260,7 +260,7 @@ export default function Watch(props: { name: string }) {
 	}
 
 	const sendSyncMessage = async (action: string) => {
-		let payload = new TextEncoder().encode(action)
+		const payload = new TextEncoder().encode(action)
 
 		try {
 			// Send the message as a TrackChunk
@@ -276,19 +276,6 @@ export default function Watch(props: { name: string }) {
 				setIsPaused(true);
 			}
 
-		} catch (err) {
-			console.error("Error sending message: ", err)
-		}
-
-		payload = new TextEncoder().encode(action)
-		try {
-			// Send the message as a TrackChunk
-			await trackWriter.write({
-				group: groupNumber++,
-				object: objectNumber++,
-				payload: payload,
-			})
-			console.log("Sync message sent successfully")
 		} catch (err) {
 			console.error("Error sending message: ", err)
 		}
