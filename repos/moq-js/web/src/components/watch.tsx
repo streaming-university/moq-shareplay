@@ -270,6 +270,12 @@ export default function Watch(props: { name: string }) {
 				payload: payload,
 			})
 			console.log("Sync message sent successfully")
+			if (isPaused()){
+				setIsPaused(false);
+			}else{
+				setIsPaused(true);
+			}
+
 		} catch (err) {
 			console.error("Error sending message: ", err)
 		}
@@ -398,10 +404,10 @@ export default function Watch(props: { name: string }) {
 					  onClick={() => {
 						if (isPaused()) {
 						  sendSyncMessage("play")
-						  handleContinue()
+						  //handleContinue()
 						} else {
 						  sendSyncMessage("pause")
-						  pause()
+						  //pause()
 						}
 					  }}
 					  disabled={clientId !== 0}

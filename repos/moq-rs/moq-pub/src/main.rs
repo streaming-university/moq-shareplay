@@ -219,14 +219,21 @@ async fn run_media_from_group_with_a_channel(mut media: Media, start_group: Opti
 
 	let start_time = Instant::now();
 	let mut total_frames = 0;
+	let mut play = true;
 
-	while total_frames < frame_atoms.len() {
+	while ( total_frames < frame_atoms.len()) {
 		let mut batch = Vec::new();
 
-		while sync_value_rx.has_changed().unwrap_or(false) {
-			if sync_value_rx.changed().await.is_ok() {
+		if !play {
+			log::info!("Playback paused. Waiting for resume signal...");
+			while sync_value_rx.changed().await.is_ok() {
 				let new_value = sync_value_rx.borrow();
-				log::info!("Received new start_group: {}", *new_value);
+
+				if *new_value == "play" {
+					log::info!("Resuming playback...");
+					play = true;
+					break;
+				}
 
 				if let Ok(new_start_group) = new_value.parse::<u32>() {
 					let mut new_frame_index = None;
@@ -267,6 +274,56 @@ async fn run_media_from_group_with_a_channel(mut media: Media, start_group: Opti
 			}
 		}
 
+		while sync_value_rx.has_changed().unwrap_or(false) {
+			if sync_value_rx.changed().await.is_ok() {
+				let new_value = sync_value_rx.borrow();
+				log::info!("Received new start_group: {}", *new_value);
+
+				if *new_value == "pause" {
+					play = false;
+				}
+
+
+				if let Ok(new_start_group) = new_value.parse::<u32>() {
+					let mut new_frame_index = None;
+					frame_index = 0;
+					total_frames = 0;
+
+					if new_start_group >= 2 {
+						new_frame_index = Some((new_start_group) as usize);
+					} else {
+						new_frame_index = Some(0);
+					}
+
+
+
+					if let Some(new_index) = new_frame_index {
+						frame_index = new_index;
+
+						frame_atoms_for_playback = frame_atoms.iter().cloned().skip(frame_index).collect();
+
+
+						log::info!(
+							"Updated frame_atoms for new start_group: {} at index {}",
+							new_start_group, frame_index
+						);
+					} else {
+						log::warn!(
+							"No matching group found for new start_group: {}, frame index not updated",
+							new_start_group
+						);
+					}
+				} else {
+					log::warn!(
+						"Failed to parse new start_group from sync_value_rx: {}",
+						*new_value
+					);
+					break;
+				}
+			}
+		}
+
+
 		for _ in 0..batch_size {
 			if total_frames < frame_atoms_for_playback.len() {
 				let mut frame_pair = Vec::new();
@@ -285,7 +342,8 @@ async fn run_media_from_group_with_a_channel(mut media: Media, start_group: Opti
 				batch.push(frame_pair);
 				total_frames += 2;
 			}
-		}
+
+	}
 
 		// Send frames to media
 		for frame_pair in batch {
