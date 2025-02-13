@@ -88,8 +88,26 @@ export default function Watch(props: { name: string }) {
 		player.closed().then(setError).catch(setError)
 	})
 
+	createEffect(() => {
+		if (!isPaused()) {
+			const interval = setInterval(() => {
+				setSliderValue((prev) => Math.min(prev + 1, 540)); // Increment time
+			}, 1000); // Update every second
+
+			return () => clearInterval(interval); // Cleanup on pause or unmount
+		}
+	})
+
+	// Handle manual seek
+	const handleSeek = (e) => {
+		const newValue = hoverValue;
+		setSliderValue(newValue); // Update slider immediately
+	};
+
 	const createTrackWriter = async () => {
 		if(isTrackWriterCreated()){
+			console.log("TrackWriter is already created, skipping initialization.");
+
 			return
 		}
 
@@ -182,6 +200,9 @@ export default function Watch(props: { name: string }) {
 						const messageElement = document.createElement("div")
 						if (!isNaN(Number(message))) {
 							messageElement.textContent = `[Leader via Sync-track] : Go to ${message}th fragment`
+							const timeInSeconds = Number(message) / 60;
+							setSliderValue(timeInSeconds);
+
 						} else {
 							messageElement.textContent = `[Leader via Sync-track] : ${message}`
 						}
@@ -217,6 +238,11 @@ export default function Watch(props: { name: string }) {
 	}
 
 	const sendFrameMessage = async (frame: string) => {
+
+		if (clientId !== 0) {
+			console.warn("Only user with id 0 can send frame messages.");
+			return;
+		}
 
 		const payload = new TextEncoder().encode(frame)
 
@@ -347,63 +373,72 @@ export default function Watch(props: { name: string }) {
 				<canvas ref={canvas} onClick={() => setIsPaused(!isPaused())} />
 				<div class="slider-overlay">
 				  <div class="slider-wrap">
-					<input
-					  id="time-slider"
-					  type="range"
-					  min="0"
-					  max="540"
-					  onInput={(e) => {
-						setSliderValue(hoverValue)
-						sendFrameMessage(String(hoverValue() * 60));
-					  }}
-					  onMouseMove={(e) => {
-						const slider = e.currentTarget as HTMLInputElement;
-						const rect = slider.getBoundingClientRect();
-						const offsetX = e.clientX - rect.left;
-						const percent = offsetX / rect.width;
+					  <input
+						  id="time-slider"
+						  type="range"
+						  min="0"
+						  max="540"
+						  value={sliderValue()} // Bind the value dynamically
+						  onInput={(e) => {
+							  if (clientId !== 0) {
+								  console.warn("Only client with id 0 can interact with the timeline.");
+								  return;
+							  }
+							  const newValue = hoverValue;
+							  setSliderValue(hoverValue); // Update the state
+							  sendFrameMessage(String(hoverValue() * 60)); // Seek video
+						  }}
+						  onMouseMove={(e) => {
+							  const slider = e.currentTarget as HTMLInputElement;
+							  const rect = slider.getBoundingClientRect();
+							  const offsetX = e.clientX - rect.left;
+							  const percent = offsetX / rect.width;
 
-						const minValue = parseFloat(slider.min);
-						const maxValue = parseFloat(slider.max);
-						const stepSize = parseFloat(slider.step) || 1;
+							  const minValue = parseFloat(slider.min);
+							  const maxValue = parseFloat(slider.max);
+							  const stepSize = parseFloat(slider.step) || 1;
 
-						let newSecond = minValue + percent * (maxValue - minValue);
-						const snappedValue = Math.round(newSecond / stepSize) * stepSize;
-						const boundedValue = Math.max(minValue, Math.min(snappedValue, maxValue));
+							  let newSecond = minValue + percent * (maxValue - minValue);
+							  const snappedValue = Math.round(newSecond / stepSize) * stepSize;
+							  const boundedValue = Math.max(minValue, Math.min(snappedValue, maxValue));
 
+							  setHoverValue(boundedValue);
+						  }}
+						  style={{
+							  background: `linear-gradient(to right, #f00 0%, #f00 ${(sliderValue() / 540) * 100}%, #ccc ${(sliderValue() / 540) * 100}%, #ccc 100%)`
+						  }}
+					  />
 
-						setHoverValue(boundedValue);
-					}}
-
-					/>
-					<div class="tooltip" style={{ left: `${(hoverValue() / 540) * 100}%` }}>{formatTime(hoverValue())}</div>
+					  <div class="tooltip"
+						   style={{left: `${(hoverValue() / 540) * 100}%`}}>{formatTime(hoverValue())}</div>
 
 				  </div>
 				</div>
 			  </div>
 
-			  {/* Keep the rest of your controls here */}
-			  <div class="video-info">
-				<div class="video-controls">
-				  {/* PLAY/PAUSE */}
-				  <div class="control-group">
-					<button
-					  class="controls-button play-pause-button"
-					  onClick={() => {
-						if (isPaused()) {
-						  sendSyncMessage("play")
-						  //handleContinue()
-						} else {
-						  sendSyncMessage("pause")
-						  //pause()
-						}
-					  }}
-					  disabled={clientId !== 0}
-					>
-					  {isPaused() ? "⏵" : "⏸"}
-					</button>
-				  </div>
+				{/* Keep the rest of your controls here */}
+				<div class="video-info">
+					<div class="video-controls">
+						{/* PLAY/PAUSE */}
+						<div class="control-group">
+							<button
+								class="controls-button play-pause-button"
+								onClick={() => {
+									if (isPaused()) {
+										sendSyncMessage("play")
+										//handleContinue()
+									} else {
+										sendSyncMessage("pause")
+										//pause()
+									}
+								}}
+								disabled={clientId !== 0}
+							>
+								{isPaused() ? "⏵" : "⏸"}
+							</button>
+						</div>
 
-				  {/* VOLUME */}
+						{/* VOLUME
 				  <div class="control-group volume-control">
 					<label>Volume</label>
 					<input
@@ -414,7 +449,7 @@ export default function Watch(props: { name: string }) {
 					  value={volume()}
 					  onInput={changeVolume}
 					/>
-				  </div>
+				  </div>*/}
 
 				  {/* SYNC + Quick Buttons */}
 				  <div class="control-group">
@@ -424,6 +459,7 @@ export default function Watch(props: { name: string }) {
 					>
 					  {clientId === 0 ? "Announce Sync" : "Subscribe Sync"}
 					</button>
+					  {/*
 					<button
 					  class="controls-button"
 					  onClick={() => sendFrameMessage("0")}
@@ -444,7 +480,7 @@ export default function Watch(props: { name: string }) {
 					  disabled={clientId !== 0}
 					>
 					  02:29
-					</button>
+					</button>*/}
 				  </div>
 				</div>
 			  </div>
