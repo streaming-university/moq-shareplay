@@ -27,19 +27,19 @@ export default function Watch(props: { name: string }) {
 	let clientId = -1 // Default to invalid ID
 	const [sliderValue, setSliderValue] = createSignal(0)
 	const [hoverValue, setHoverValue] = createSignal(0)
-	if (urlSearchParams.has("master")) {
-		clientId = 0 // Master gets ID 0
-		console.log("Client is master with ID:", clientId)
+	if (urlSearchParams.has("leader")) {
+		clientId = 0 // Leader gets ID 0
+		console.log("Client is leader with ID:", clientId)
 	} else {
 		for (const [key] of urlSearchParams.entries()) {
-			if (key.startsWith("slave")) {
-				const slaveId = parseInt(key.replace("slave", ""), 10)
+			if (key.startsWith("follower")) {
+				const followerId = parseInt(key.replace("follower", ""), 10)
 
-				if (slaveId > 0) { // Accept only slave IDs > 0
-					clientId = slaveId
-					console.log(`Client is slave with ID: ${clientId}`)
+				if (followerId > 0) { // Accept only follower IDs > 0
+					clientId = followerId
+					console.log(`Client is follower with ID: ${clientId}`)
 				} else {
-					console.error("Invalid slave ID (must be slave1, slave2, ... and slave0 is not allowed)")
+					console.error("Invalid follower ID (must be follower1, follower2, ... and follower0 is not allowed)")
 				}
 				break
 			}
@@ -47,7 +47,7 @@ export default function Watch(props: { name: string }) {
 	}
 
 	if (clientId === -1) {
-		console.error("No valid master or slave role specified in the URL")
+		console.error("No valid leader or follower role specified in the URL")
 	}
 
 	// ----------- variables for sync functionality ------------
@@ -127,7 +127,7 @@ export default function Watch(props: { name: string }) {
 
 	const announceSyncNamespace = async () => {
 		if (clientId !== 0) {
-			// console.error("Only the master can announce a sync track")
+			// console.error("Only the leader can announce a sync track")
 			return
 		}
 		if(isAnnounced()){
@@ -181,9 +181,9 @@ export default function Watch(props: { name: string }) {
 						const chatMessages = document.querySelector(".chat-messages")
 						const messageElement = document.createElement("div")
 						if (!isNaN(Number(message))) {
-							messageElement.textContent = `[Master via Sync-track] : Go to ${message}th fragment`
+							messageElement.textContent = `[Leader via Sync-track] : Go to ${message}th fragment`
 						} else {
-							messageElement.textContent = `[Master via Sync-track] : ${message}`
+							messageElement.textContent = `[Leader via Sync-track] : ${message}`
 						}
 						chatMessages?.appendChild(messageElement)
 					}
@@ -237,7 +237,7 @@ export default function Watch(props: { name: string }) {
 		setMessageInput("")
 	}
 	const sendMessage = async () => {
-		const sender = clientId === 0 ? "Master" : `Slave-${clientId}`
+		const sender = clientId === 0 ? "Leader" : `Follower-${clientId}`
 		const customMessage = messageInput() // Get message from textbox
 
 		const payload = new TextEncoder().encode(customMessage)
