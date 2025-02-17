@@ -1,3 +1,28 @@
+/* Toggle Chat Button styles */
+.toggle-chat-button {
+	background: #b70000;
+	color: #000;
+	border: none;
+	padding: 8px 12px;
+	border-radius: 20px;
+	font-weight: 600;
+	cursor: pointer;
+	transition: background 0.2s;
+	margin-left: auto;
+  }
+  
+  .toggle-chat-button:hover {
+	background: #ffb52e;
+  }
+  
+  /* Position the "Open Chat" button when chat is closed */
+  .open-chat {
+	position: fixed;
+	right: 24px;
+	bottom: 24px;
+	z-index: 1000;
+  }
+
 .youtube-layout {
 	display: flex;
 	width: 100%;
@@ -377,6 +402,39 @@ canvas {
 	-o-border-radius: 4px;
 }
 
-  .slider-wrap:hover .tooltip {
-	opacity: 1;
-  }
+.slider-wrap:hover .tooltip {
+opacity: 1;
+}
+
+.blue-theme .chat-section {
+	width: 400px;
+	background: #1a1a1a;
+	border-radius: 12px;
+	display: flex;
+	flex-direction: column;
+	border: 2px solid #0096b7;
+	margin-right: 24px;
+	/* box-shadow: 0 0 15px #0096b7; */
+}
+
+.blue-theme .play-pause-button,
+.blue-theme .controls-button {
+	border-color: #01252d;
+	/* box-shadow: 0 0 15px #0096b7; */
+	background: #00181e;
+	color: #ffffff;
+}
+
+.blue-theme .play-pause-button:hover,
+.blue-theme .controls-button:hover {
+	background: #0096b7;
+	box-shadow: 0 0 20px #0096b7;
+}
+
+.blue-theme .volume-control input[type="range"] {
+	background: linear-gradient(to right, #0096b7 var(--volume-percent), #3e3b3b var(--volume-percent));
+}
+
+.blue-theme .volume-control input[type="range"]::-webkit-slider-thumb {
+	background: #ffffff;
+}

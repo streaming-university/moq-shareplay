@@ -24,7 +24,10 @@ export default function Watch(props: { name: string }) {
 	const [volume, setVolume] = createSignal(50)
 	const [reader, setReader] = createSignal<TrackReader | undefined>()
 	const [messageInput, setMessageInput] = createSignal("")
+	const [isChatOpen, setIsChatOpen] = createSignal(true)
+
 	let clientId = -1 // Default to invalid ID
+	
 	const [sliderValue, setSliderValue] = createSignal(0)
 	const [hoverValue, setHoverValue] = createSignal(0)
 	if (urlSearchParams.has("leader")) {
@@ -367,149 +370,105 @@ export default function Watch(props: { name: string }) {
 	// TODO shrink it if needed via CSS
 	return (
 		<>
-		  <div class="youtube-layout">
-			<div class="video-section">
-			  <div class="video-container">
-				<canvas ref={canvas} onClick={() => setIsPaused(!isPaused())} />
-				<div class="slider-overlay">
-				  <div class="slider-wrap">
-					  <input
-						  id="time-slider"
-						  type="range"
-						  min="0"
-						  max="540"
-						  value={sliderValue()} // Bind the value dynamically
-						  onInput={(e) => {
-							  if (clientId !== 0) {
-								  console.warn("Only client with id 0 can interact with the timeline.");
-								  return;
-							  }
-							  const newValue = hoverValue;
-							  setSliderValue(hoverValue); // Update the state
-							  sendFrameMessage(String(hoverValue() * 60)); // Seek video
-						  }}
-						  onMouseMove={(e) => {
-							  const slider = e.currentTarget as HTMLInputElement;
-							  const rect = slider.getBoundingClientRect();
-							  const offsetX = e.clientX - rect.left;
-							  const percent = offsetX / rect.width;
-
-							  const minValue = parseFloat(slider.min);
-							  const maxValue = parseFloat(slider.max);
-							  const stepSize = parseFloat(slider.step) || 1;
-
-							  let newSecond = minValue + percent * (maxValue - minValue);
-							  const snappedValue = Math.round(newSecond / stepSize) * stepSize;
-							  const boundedValue = Math.max(minValue, Math.min(snappedValue, maxValue));
-
-							  setHoverValue(boundedValue);
-						  }}
-						  style={{
-							  background: `linear-gradient(to right, #f00 0%, #f00 ${(sliderValue() / 540) * 100}%, #ccc ${(sliderValue() / 540) * 100}%, #ccc 100%)`
-						  }}
-					  />
-
-					  <div class="tooltip"
-						   style={{left: `${(hoverValue() / 540) * 100}%`}}>{formatTime(hoverValue())}</div>
-
-				  </div>
-				</div>
-			  </div>
-
-				{/* Keep the rest of your controls here */}
-				<div class="video-info">
-					<div class="video-controls">
-						{/* PLAY/PAUSE */}
-						<div class="control-group">
-							<button
-								class="controls-button play-pause-button"
-								onClick={() => {
-									if (isPaused()) {
-										sendSyncMessage("play")
-										//handleContinue()
-									} else {
-										sendSyncMessage("pause")
-										//pause()
-									}
-								}}
-								disabled={clientId !== 0}
-							>
-								{isPaused() ? "⏵" : "⏸"}
-							</button>
+			<div class={`youtube-layout ${clientId !== 0 ? "blue-theme" : ""}`}>
+				<div class="video-section">
+					<div class="video-container">
+						<canvas ref={canvas} onClick={() => setIsPaused(!isPaused())} />
+						<div class="slider-overlay">
+							<div class="slider-wrap">
+								<input
+									id="time-slider"
+									type="range"
+									min="0"
+									max="540"
+									value={sliderValue()}
+									onInput={(e) => {
+										if (clientId !== 0) {
+											console.warn("Only client with id 0 can interact with the timeline.");
+											return;
+										}
+										const newValue = hoverValue;
+										setSliderValue(hoverValue);
+										sendFrameMessage(String(hoverValue() * 60));
+									}}
+									style={{
+										background: `linear-gradient(to right, ${clientId === 0 ? "#f00" : "#00f"} 0%, ${
+											clientId === 0 ? "#f00" : "#00f"
+										} ${(sliderValue() / 540) * 100}%, #ccc ${(sliderValue() / 540) * 100}%, #ccc 100%)`
+									}}
+								/>
+								<div class="tooltip" style={{ left: `${(hoverValue() / 540) * 100}%` }}>
+									{formatTime(hoverValue())}
+								</div>
+							</div>
 						</div>
-
-						{/* VOLUME
-				  <div class="control-group volume-control">
-					<label>Volume</label>
-					<input
-					  id="volume"
-					  type="range"
-					  min="0"
-					  max="100"
-					  value={volume()}
-					  onInput={changeVolume}
-					/>
-				  </div>*/}
-
-				  {/* SYNC + Quick Buttons */}
-				  <div class="control-group">
-					<button
-					  class="controls-button"
-					  onClick={runClient}
-					>
-					  {clientId === 0 ? "Announce Sync" : "Subscribe Sync"}
-					</button>
-					  {/*
-					<button
-					  class="controls-button"
-					  onClick={() => sendFrameMessage("0")}
-					  disabled={clientId !== 0}
-					>
-					  00:00
-					</button>
-					<button
-					  class="controls-button"
-					  onClick={() => sendFrameMessage("10000")}
-					  disabled={clientId !== 0}
-					>
-					  01:14
-					</button>
-					<button
-					  class="controls-button"
-					  onClick={() => sendFrameMessage("20000")}
-					  disabled={clientId !== 0}
-					>
-					  02:29
-					</button>*/}
-				  </div>
+					</div>
+	
+					{/* Video Controls */}
+					<div class="video-info">
+						<div class="video-controls">
+							<div class="control-group">
+								<button
+									class={`controls-button play-pause-button ${clientId !== 0 ? "blue-theme" : ""}`}
+									onClick={() => {
+										if (isPaused()) {
+											sendSyncMessage("play");
+										} else {
+											sendSyncMessage("pause");
+										}
+									}}
+									disabled={clientId !== 0}
+								>
+									{isPaused() ? "⏵" : "⏸"}
+								</button>
+							</div>
+							
+							{/* Chat toggle button next to the play/pause button */}
+							<div class="control-group">
+								<button
+									class="controls-button toggle-chat-button"
+									onClick={() => setIsChatOpen(!isChatOpen())}
+								>
+									{isChatOpen() ? "Close Chat" : "Open Chat"}
+								</button>
+							</div>
+							
+							{/* Sync Controls */}
+							{clientId === 0 && (
+								<div class="control-group">
+									<button class="controls-button" onClick={runClient}>
+										Announce Sync
+									</button>
+								</div>
+							)}
+						</div>
+					</div>
 				</div>
-			  </div>
+	
+				{/* Chat Section */}
+				<Show when={isChatOpen()}>
+					<div class="chat-section">
+						<div class="chat-header">Media over QUIC Chat</div>
+						<div class="chat-messages"></div>
+						<div class="message-input-container">
+							{clientId === 0 && (
+								<input
+									type="text"
+									class="message-input"
+									placeholder="Send a message..."
+									value={messageInput()}
+									onInput={(e) => setMessageInput(e.currentTarget.value)}
+								/>
+							)}
+							{clientId === 0 && (
+								<button class="send-button" onClick={sendMessage}>
+									Send
+								</button>
+							)}
+						</div>
+					</div>
+				</Show>
 			</div>
-
-			{/* CHAT SECTION */}
-			<div class="chat-section">
-			  <div class="chat-header">Live Media over QUIC Chat</div>
-			  <div class="chat-messages">
-				{/* Messages will appear here */}
-			  </div>
-			  <div class="message-input-container">
-				{clientId === 0 && (
-				  <input
-					type="text"
-					class="message-input"
-					placeholder="Send a message..."
-					value={messageInput()}
-					onInput={(e) => setMessageInput(e.currentTarget.value)}
-				  />
-				)}
-				{clientId === 0 && (
-				  <button class="send-button" onClick={sendMessage}>
-					Send
-				  </button>
-				)}
-			  </div>
-			</div>
-		  </div>
 		</>
-	  )
+	);
 }
