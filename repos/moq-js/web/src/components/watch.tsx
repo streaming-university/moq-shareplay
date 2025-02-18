@@ -18,16 +18,14 @@ export default function Watch(props: { name: string }) {
 	const [usePlayer, setPlayer] = createSignal<Player | undefined>()
 	const [showCatalog, setShowCatalog] = createSignal(false)
 	const [isPaused, setIsPaused] = createSignal(false)
+	const [showChat, setShowChat] = createSignal(true);
 	const [isAnnounced, setIsAnnounced] = createSignal(false)
 	const [isTrackWriterCreated, setIsTrackWriterCreated] = createSignal(false)
 	const [isSubscribed, setIsSubscribed] = createSignal(false)
 	const [volume, setVolume] = createSignal(50)
 	const [reader, setReader] = createSignal<TrackReader | undefined>()
 	const [messageInput, setMessageInput] = createSignal("")
-	const [isChatOpen, setIsChatOpen] = createSignal(true)
-
 	let clientId = -1 // Default to invalid ID
-	
 	const [sliderValue, setSliderValue] = createSignal(0)
 	const [hoverValue, setHoverValue] = createSignal(0)
 	if (urlSearchParams.has("leader")) {
@@ -72,8 +70,8 @@ export default function Watch(props: { name: string }) {
 		if (slider) {
 			slider.value = `${initialVolume}`; // Set slider value
 			slider.style.setProperty("--volume-percent", `${initialVolume}%`); // Set initial CSS variable
-			setVolume(initialVolume); // Update state
-			usePlayer()?.setVolume(initialVolume / 100); // Set player volume
+			//setVolume(initialVolume); // Update state
+			//usePlayer()?.setVolume(initialVolume / 100); // Set player volume
 		}
 
 		// Special case localhost to fetch the TLS fingerprint from the server.
@@ -92,25 +90,17 @@ export default function Watch(props: { name: string }) {
 	})
 
 	createEffect(() => {
-		if (!isPaused()) {
-			const interval = setInterval(() => {
-				setSliderValue((prev) => Math.min(prev + 1, 540)); // Increment time
-			}, 1000); // Update every second
-
-			return () => clearInterval(interval); // Cleanup on pause or unmount
+		if (clientId === 0) {
+		  document.body.classList.remove("follower-theme");
+		  document.body.classList.add("leader-theme");
+		} else {
+		  document.body.classList.remove("leader-theme");
+		  document.body.classList.add("follower-theme");
 		}
-	})
-
-	// Handle manual seek
-	const handleSeek = (e) => {
-		const newValue = hoverValue;
-		setSliderValue(newValue); // Update slider immediately
-	};
+	  });
 
 	const createTrackWriter = async () => {
 		if(isTrackWriterCreated()){
-			console.log("TrackWriter is already created, skipping initialization.");
-
 			return
 		}
 
@@ -203,9 +193,6 @@ export default function Watch(props: { name: string }) {
 						const messageElement = document.createElement("div")
 						if (!isNaN(Number(message))) {
 							messageElement.textContent = `[Leader via Sync-track] : Go to ${message}th fragment`
-							const timeInSeconds = Number(message) / 60;
-							setSliderValue(timeInSeconds);
-
 						} else {
 							messageElement.textContent = `[Leader via Sync-track] : ${message}`
 						}
@@ -241,11 +228,6 @@ export default function Watch(props: { name: string }) {
 	}
 
 	const sendFrameMessage = async (frame: string) => {
-
-		if (clientId !== 0) {
-			console.warn("Only user with id 0 can send frame messages.");
-			return;
-		}
 
 		const payload = new TextEncoder().encode(frame)
 
@@ -323,14 +305,14 @@ export default function Watch(props: { name: string }) {
 		}
 	}
 
-	const changeVolume = (event: Event) => {
-		const volumeValue = (event.target as HTMLInputElement).value
-		setVolume(Number(volumeValue))
-		usePlayer()?.setVolume(Number(volumeValue) / 100)
+	// const changeVolume = (event: Event) => {
+	// 	const volumeValue = (event.target as HTMLInputElement).value
+	// 	setVolume(Number(volumeValue))
+	// 	usePlayer()?.setVolume(Number(volumeValue) / 100)
 
-		const slider = event.target as HTMLInputElement
-		slider.style.setProperty('--volume-percent', `${volumeValue}%`)
-	}
+	// 	const slider = event.target as HTMLInputElement
+	// 	slider.style.setProperty('--volume-percent', `${volumeValue}%`)
+	// }
 
 	const play = () => {
 		setIsPaused(false);
@@ -370,105 +352,127 @@ export default function Watch(props: { name: string }) {
 	// TODO shrink it if needed via CSS
 	return (
 		<>
-			<div class={`youtube-layout ${clientId !== 0 ? "blue-theme" : ""}`}>
-				<div class="video-section">
-					<div class="video-container">
-						<canvas ref={canvas} onClick={() => setIsPaused(!isPaused())} />
-						<div class="slider-overlay">
-							<div class="slider-wrap">
-								<input
-									id="time-slider"
-									type="range"
-									min="0"
-									max="540"
-									value={sliderValue()}
-									onInput={(e) => {
-										if (clientId !== 0) {
-											console.warn("Only client with id 0 can interact with the timeline.");
-											return;
-										}
-										const newValue = hoverValue;
-										setSliderValue(hoverValue);
-										sendFrameMessage(String(hoverValue() * 60));
-									}}
-									style={{
-										background: `linear-gradient(to right, ${clientId === 0 ? "#f00" : "#00f"} 0%, ${
-											clientId === 0 ? "#f00" : "#00f"
-										} ${(sliderValue() / 540) * 100}%, #ccc ${(sliderValue() / 540) * 100}%, #ccc 100%)`
-									}}
-								/>
-								<div class="tooltip" style={{ left: `${(hoverValue() / 540) * 100}%` }}>
-									{formatTime(hoverValue())}
-								</div>
-							</div>
-						</div>
-					</div>
-	
-					{/* Video Controls */}
-					<div class="video-info">
-						<div class="video-controls">
-							<div class="control-group">
-								<button
-									class={`controls-button play-pause-button ${clientId !== 0 ? "blue-theme" : ""}`}
-									onClick={() => {
-										if (isPaused()) {
-											sendSyncMessage("play");
-										} else {
-											sendSyncMessage("pause");
-										}
-									}}
-									disabled={clientId !== 0}
-								>
-									{isPaused() ? "⏵" : "⏸"}
-								</button>
-							</div>
-							
-							{/* Chat toggle button next to the play/pause button */}
-							<div class="control-group">
-								<button
-									class="controls-button toggle-chat-button"
-									onClick={() => setIsChatOpen(!isChatOpen())}
-								>
-									{isChatOpen() ? "Close Chat" : "Open Chat"}
-								</button>
-							</div>
-							
-							{/* Sync Controls */}
-							{clientId === 0 && (
-								<div class="control-group">
-									<button class="controls-button" onClick={runClient}>
-										Announce Sync
-									</button>
-								</div>
-							)}
-						</div>
-					</div>
+		  <div class="youtube-layout">
+			<div class="video-section">
+			  <div class="video-container">
+				<canvas ref={canvas} onClick={() => setIsPaused(!isPaused())} />
+				<div class="slider-overlay">
+				{clientId === 0 && (
+				  <div class="slider-wrap">
+					<input
+					  id="time-slider"
+					  type="range"
+					  min="0"
+					  max="540"
+					  onInput={(e) => {
+						setSliderValue(hoverValue)
+						sendFrameMessage(String(hoverValue() * 60));
+					  }}
+					  onMouseMove={(e) => {
+						const slider = e.currentTarget as HTMLInputElement;
+						const rect = slider.getBoundingClientRect();
+						const offsetX = e.clientX - rect.left;
+						const percent = offsetX / rect.width;
+
+						const minValue = parseFloat(slider.min);
+						const maxValue = parseFloat(slider.max);
+						const stepSize = parseFloat(slider.step) || 1;
+
+						let newSecond = minValue + percent * (maxValue - minValue);
+						const snappedValue = Math.round(newSecond / stepSize) * stepSize;
+						const boundedValue = Math.max(minValue, Math.min(snappedValue, maxValue));
+
+
+						setHoverValue(boundedValue);
+					}}
+					style={{
+						background: `linear-gradient(to right, #f00 0%, #f00 ${(sliderValue() / 540) * 100}%, #ccc ${(sliderValue() / 540) * 100}%, #ccc 100%)`
+					}}
+					/>
+					<div class="tooltip" style={{ left: `${(hoverValue() / 540) * 100}%` }}>{formatTime(hoverValue())}</div>
+
+				  </div>
+				)}</div>
+			  </div>
+
+			  {/* Keep the rest of your controls here */}
+			  <div class="video-info">
+				<div class="video-controls">
+				  {/* PLAY/PAUSE */}
+				  <div class="control-group">
+					<button
+					  class="controls-button play-pause-button"
+					  onClick={() => {
+						if (isPaused()) {
+						  sendSyncMessage("play")
+						  //handleContinue()
+						} else {
+						  sendSyncMessage("pause")
+						  //pause()
+						}
+					  }}
+					  disabled={clientId !== 0}
+					>
+					  {isPaused() ? "⏵" : "⏸"}
+					</button>
+				  </div>
+
+				  {/* VOLUME
+				  <div class="control-group volume-control">
+					<label>Volume</label>
+					<input
+					  id="volume"
+					  type="range"
+					  min="0"
+					  max="100"
+					  value={volume()}
+					  onInput={changeVolume}
+					/>
+				  </div> */}
+
+				  {/* SYNC + Quick Buttons */}
+				  <div class="control-group">
+					<button
+					  class="controls-button"
+					  onClick={runClient}
+					>
+					  {clientId === 0 ? "Announce Sync" : "Subscribe Sync"}
+					</button>
+					<button class="controls-button" onClick={() => setShowChat(!showChat())}>
+		{showChat() ? "Hide Chatbox" : "Show Chatbox"}
+	</button>
+				  </div>
 				</div>
-	
-				{/* Chat Section */}
-				<Show when={isChatOpen()}>
-					<div class="chat-section">
-						<div class="chat-header">Media over QUIC Chat</div>
-						<div class="chat-messages"></div>
-						<div class="message-input-container">
-							{clientId === 0 && (
-								<input
-									type="text"
-									class="message-input"
-									placeholder="Send a message..."
-									value={messageInput()}
-									onInput={(e) => setMessageInput(e.currentTarget.value)}
-								/>
-							)}
-							{clientId === 0 && (
-								<button class="send-button" onClick={sendMessage}>
-									Send
-								</button>
-							)}
-						</div>
-					</div>
-				</Show>
+			  </div>
 			</div>
+
+			{/* CHAT SECTION */}
+			<Show when={showChat()}>
+			<div class="chat-section">
+			  <div class="chat-header">Live Media over QUIC Chat</div>
+			  <div class="chat-messages">
+				{/* Messages will appear here */}
+			  </div>
+			  <div class="message-input-container">
+				{clientId === 0 && (
+				  <input
+					type="text"
+					class="message-input"
+					placeholder="Send a message..."
+					value={messageInput()}
+					onInput={(e) => setMessageInput(e.currentTarget.value)}
+				  />
+				)}
+				{clientId === 0 && (
+				  <button class="send-button" onClick={sendMessage}>
+					Send
+				  </button>
+				)}
+			  </div>
+			</div>
+			</Show>
+		  </div>
 		</>
-	);
+
+	  )
 }
