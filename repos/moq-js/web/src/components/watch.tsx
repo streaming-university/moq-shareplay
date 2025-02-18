@@ -79,6 +79,10 @@ export default function Watch(props: { name: string }) {
 		const fingerprint = server.startsWith("localhost") ? `https://${server}/fingerprint` : undefined
 
 		Player.create({ url, fingerprint, canvas, namespace }).then(setPlayer).catch(setError)
+
+		if (clientId !== 0) {
+			runFollower()
+		}
 	})
 
 	createEffect(() => {
@@ -292,12 +296,19 @@ export default function Watch(props: { name: string }) {
 		}
 	}
 
-	const runClient = async () => {
+	const runLeader = async () => {
 		try {
-			if (clientId === 0) {
-				await announceSyncNamespace()
-				await createTrackWriter()
-			}
+			await announceSyncNamespace()
+			await createTrackWriter()
+			await subscribeToSyncTrack()
+
+		} catch (err) {
+			console.error("Error running client: ", err)
+		}
+	}
+
+	const runFollower = async () => {
+		try {
 			await subscribeToSyncTrack()
 
 		} catch (err) {
@@ -432,12 +443,14 @@ export default function Watch(props: { name: string }) {
 
 				  {/* SYNC + Quick Buttons */}
 				  <div class="control-group">
-					<button
-					  class="controls-button"
-					  onClick={runClient}
-					>
-					  {clientId === 0 ? "Announce Sync" : "Subscribe Sync"}
-					</button>
+					{clientId === 0 && (
+					  <button
+						class="controls-button"
+						onClick={runLeader}
+					  >
+						Announce Sync
+					  </button>
+					)}
 					<button class="controls-button" onClick={() => setShowChat(!showChat())}>
 		{showChat() ? "Hide Chatbox" : "Show Chatbox"}
 	</button>
