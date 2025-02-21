@@ -2,16 +2,16 @@ use bytes::{Bytes, BytesMut};
 use std::{env, fs, net, path::PathBuf};
 use url::Url;
 use std::io::Cursor;
+use bincode;
 use anyhow::Context;
 use clap::Parser;
 use tokio::time::{Duration, Instant};
-use tokio::{fs::File, io::AsyncReadExt};
+use tokio::{fs::File, io::AsyncReadExt, io::BufReader};
 use mp4::{self, ReadBox, TrackType};
 use moq_native::quic;
 use moq_pub::{Media, SubToSync};
 use moq_transport::{serve, serve::Tracks, session::Publisher};
 use moq_transport::session::Subscriber;
-
 use moq_transport::serve::{TrackReaderMode, TracksReader};
 
 
@@ -144,11 +144,36 @@ tokio::spawn(async move {
 // }
 
 
+
+async fn load_keyframes_from_file(filename: &str) -> anyhow::Result<Vec<i32>> {
+    let file = File::open(filename)
+        .await
+        .with_context(|| format!("Failed to open file: {}", filename))?;
+
+    let mut reader = BufReader::new(file);
+
+    let mut buffer = Vec::new();
+    reader.read_to_end(&mut buffer).await
+        .with_context(|| "Failed to read file contents")?;
+
+    let keyframe_indexes: Vec<i32> = bincode::deserialize(&buffer)
+        .with_context(|| "Failed to deserialize keyframe indexes")?;
+
+    Ok(keyframe_indexes)
+}
+
 async fn run_media_from_group_with_a_channel(mut media: Media, start_group: Option<u32>, start_object: Option<u32>, mut sync_value_rx: watch::Receiver<String>,) -> anyhow::Result<()> {
 	log::debug!(
 		"Starting run_media with mdat : {:?}  request",
 		start_group
 	);
+
+
+	let keyframe_indexes = load_keyframes_from_file("keyframes.bin").await.unwrap();
+	//log::info!("{:?}", keyframe_indexes);
+	//log:info!("The second 2 is corresponding to: {:?}" ,keyframe_indexes.get(2));
+
+
 
 	let dir_path = env::current_dir()?.join("atoms");
 	let dir = dir_path.to_str().unwrap();
@@ -213,7 +238,7 @@ async fn run_media_from_group_with_a_channel(mut media: Media, start_group: Opti
 	//log::debug!("Frames after skipping: {:?}", frame_atoms);
 
 	let batch_size = 2;
-	let target_fps = 30.0;
+	let target_fps = 85.0;
 	let frame_delay = Duration::from_secs_f64(1.0 / target_fps);
 	let batch_delay = frame_delay * batch_size as u32;
 
@@ -236,43 +261,43 @@ async fn run_media_from_group_with_a_channel(mut media: Media, start_group: Opti
 				}
 
 				if let Ok(new_start_group) = new_value.parse::<u32>() {
-					let mut new_frame_index = None;
 					frame_index = 0;
 					total_frames = 0;
 
-					if new_start_group >= 2 {
-						new_frame_index = Some((new_start_group) as usize);
-					} else {
-						new_frame_index = Some(0);
-					}
 
+					if let Some(&new_keyframe) = keyframe_indexes.get(new_start_group as usize) {
+						if new_keyframe >= 0 {
+							frame_index = new_keyframe as usize;
+							frame_index -= 2;
 
+							frame_atoms_for_playback = frame_atoms.iter().cloned().skip(frame_index).collect();
 
-					if let Some(new_index) = new_frame_index {
-						frame_index = new_index;
-
-						frame_atoms_for_playback = frame_atoms.iter().cloned().skip(frame_index).collect();
-
-
-						log::info!(
-							"Updated frame_atoms for new start_group: {} at index {}",
-							new_start_group, frame_index
-						);
+							log::info!(
+								"Updated frame_atoms for new start_group: {} (mapped to keyframe: {}) at index {}",
+								new_start_group, new_keyframe, frame_index
+							);
+						} else {
+							log::warn!(
+								"Keyframe index is negative for new start_group: {}, skipping seek.",
+								new_start_group
+							);
+						}
 					} else {
 						log::warn!(
-							"No matching group found for new start_group: {}, frame index not updated",
+							"No matching keyframe found for new_start_group: {}, frame index not updated",
 							new_start_group
 						);
 					}
 				} else {
 					log::warn!(
-						"Failed to parse new start_group from sync_value_rx: {}",
+						"Failed to parse new_start_group from sync_value_rx: {}",
 						*new_value
 					);
 					break;
 				}
 			}
 		}
+
 
 		while sync_value_rx.has_changed().unwrap_or(false) {
 			if sync_value_rx.changed().await.is_ok() {
@@ -285,37 +310,36 @@ async fn run_media_from_group_with_a_channel(mut media: Media, start_group: Opti
 
 
 				if let Ok(new_start_group) = new_value.parse::<u32>() {
-					let mut new_frame_index = None;
 					frame_index = 0;
 					total_frames = 0;
 
-					if new_start_group >= 2 {
-						new_frame_index = Some((new_start_group) as usize);
-					} else {
-						new_frame_index = Some(0);
-					}
 
+					if let Some(&new_keyframe) = keyframe_indexes.get(new_start_group as usize) {
+						if new_keyframe >= 0 {
+							frame_index = new_keyframe as usize;
+							frame_index -= 2;
 
+							frame_atoms_for_playback = frame_atoms.iter().cloned().skip(frame_index).collect();
 
-					if let Some(new_index) = new_frame_index {
-						frame_index = new_index;
-
-						frame_atoms_for_playback = frame_atoms.iter().cloned().skip(frame_index).collect();
-
-
-						log::info!(
-							"Updated frame_atoms for new start_group: {} at index {}",
-							new_start_group, frame_index
-						);
+							log::info!(
+								"Updated frame_atoms for new start_group: {} (mapped to keyframe: {}) at index {}",
+								new_start_group, new_keyframe, frame_index
+							);
+						} else {
+							log::warn!(
+								"Keyframe index is negative for new start_group: {}, skipping seek.",
+								new_start_group
+							);
+						}
 					} else {
 						log::warn!(
-							"No matching group found for new start_group: {}, frame index not updated",
+							"No matching keyframe found for new_start_group: {}, frame index not updated",
 							new_start_group
 						);
 					}
 				} else {
 					log::warn!(
-						"Failed to parse new start_group from sync_value_rx: {}",
+						"Failed to parse new_start_group from sync_value_rx: {}",
 						*new_value
 					);
 					break;
@@ -442,7 +466,7 @@ async fn run_media_from_group_with_a_channel_2(mut media: Media, start_group: Op
 
 	// Playback parameters
 	let batch_size = 1;
-	let target_fps = 86.0;
+	let target_fps = 88.0;
 	let frame_delay = Duration::from_secs_f64(1.0 / target_fps);
 	let batch_delay = frame_delay * batch_size as u32;
 

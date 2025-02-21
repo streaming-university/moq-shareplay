@@ -88,24 +88,38 @@
 	box-shadow: none;
 }
 
-.volume-control input[type="range"] {
+#volume {
 	-webkit-appearance: none;
-	width: 100px;
-	height: 4px;
-	background: linear-gradient(to right, #b70000 var(--volume-percent, 50%), #ffffff var(--volume-percent, 50%));
-	border-radius: 2px;
-	cursor: pointer;
-}
+	appearance: none;
+	width: 200px;
+	height: 6px;
+	background: linear-gradient(to right, var(--button-bg) var(--volume-percent, 50%), #ffffff var(--volume-percent, 50%));
+	border-radius: 3px;
+	outline: none;
+	transition: background 0.2s ease-in-out;
+  }
 
-.volume-control input[type="range"]::-webkit-slider-thumb {
+
+  #volume::-webkit-slider-runnable-track {
+	width: 100%;
+	height: 6px;
+	border-radius: 3px;
+	background: linear-gradient(to right, var(--button-bg) var(--volume-percent, 50%), #ffffff var(--volume-percent, 50%));
+  }
+
+  /* Customizing the thumb (the circular handle) */
+  #volume::-webkit-slider-thumb {
 	-webkit-appearance: none;
+	appearance: none;
 	width: 16px;
 	height: 16px;
-	background: #000000;
+	background-color: #fff;
+	border: 2px solid var(--button-bg);
 	border-radius: 50%;
 	cursor: pointer;
-	box-shadow: 0 0 2px rgba(0, 0, 0, 0.3);
-}
+	margin-top: -5px; /* Center the thumb */
+  }
+
 
 /* YouTube-style layout */
 .youtube-layout {

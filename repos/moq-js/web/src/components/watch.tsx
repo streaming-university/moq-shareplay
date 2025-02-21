@@ -316,14 +316,14 @@ export default function Watch(props: { name: string }) {
 		}
 	}
 
-	// const changeVolume = (event: Event) => {
-	// 	const volumeValue = (event.target as HTMLInputElement).value
-	// 	setVolume(Number(volumeValue))
-	// 	usePlayer()?.setVolume(Number(volumeValue) / 100)
+	const changeVolume = (event: Event) => {
+		const volumeValue = (event.target as HTMLInputElement).value
+		setVolume(Number(volumeValue))
+		usePlayer()?.setVolume(Number(volumeValue) / 100)
 
-	// 	const slider = event.target as HTMLInputElement
-	// 	slider.style.setProperty('--volume-percent', `${volumeValue}%`)
-	// }
+		const slider = event.target as HTMLInputElement
+		slider.style.setProperty('--volume-percent', `${volumeValue}%`)
+	}
 
 	const play = () => {
 		setIsPaused(false);
@@ -377,7 +377,7 @@ export default function Watch(props: { name: string }) {
 					  max="540"
 					  onInput={(e) => {
 						setSliderValue(hoverValue)
-						sendFrameMessage(String(hoverValue() * 60));
+						sendFrameMessage(hoverValue().toString());
 					  }}
 					  onMouseMove={(e) => {
 						const slider = e.currentTarget as HTMLInputElement;
@@ -416,10 +416,8 @@ export default function Watch(props: { name: string }) {
 					  onClick={() => {
 						if (isPaused()) {
 						  sendSyncMessage("play")
-						  //handleContinue()
 						} else {
 						  sendSyncMessage("pause")
-						  //pause()
 						}
 					  }}
 					  disabled={clientId !== 0}
@@ -428,7 +426,7 @@ export default function Watch(props: { name: string }) {
 					</button>
 				  </div>
 
-				  {/* VOLUME
+
 				  <div class="control-group volume-control">
 					<label>Volume</label>
 					<input
@@ -439,7 +437,7 @@ export default function Watch(props: { name: string }) {
 					  value={volume()}
 					  onInput={changeVolume}
 					/>
-				  </div> */}
+				  </div>
 
 				  {/* SYNC + Quick Buttons */}
 				  <div class="control-group">
