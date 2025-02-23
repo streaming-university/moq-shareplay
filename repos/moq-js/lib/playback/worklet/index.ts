@@ -39,7 +39,7 @@ class Renderer extends AudioWorkletProcessor {
 		if (this.ring.size() == this.ring.capacity) {
 			// This is a hack to clear any latency in the ring buffer.
 			// The proper solution is to play back slightly faster?
-			console.warn("resyncing ring buffer")
+			// console.warn("resyncing ring buffer") //TODO: uncomment after demo
 			this.ring.clear()
 			return true
 		}

@@ -66,14 +66,14 @@ export default function Watch(props: { name: string }) {
 		const namespace = props.name
 		const url = `https://${server}`
 
-		const initialVolume = 50; // Set your desired initial volume (0–100)
+		const initialVolume = 0; // Set your desired initial volume (0–100)
 		const slider = document.querySelector(".volume-control input[type='range']") as HTMLInputElement;
 
 		if (slider) {
 			slider.value = `${initialVolume}`; // Set slider value
 			slider.style.setProperty("--volume-percent", `${initialVolume}%`); // Set initial CSS variable
-			//setVolume(initialVolume); // Update state
-			//usePlayer()?.setVolume(initialVolume / 100); // Set player volume
+			setVolume(initialVolume); // Update state
+			usePlayer()?.setVolume(initialVolume / 100); // Set player volume
 		}
 
 		// Special case localhost to fetch the TLS fingerprint from the server.
