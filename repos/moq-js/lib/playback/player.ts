@@ -35,6 +35,8 @@ export class Player {
 	#close!: () => void
 	#abort!: (err: Error) => void
 
+	#messageCallback?: (msg: any) => void
+
 	private constructor(connection: Connection, catalog: Catalog.Root, backend: Backend) {
 		this.#connection = connection
 		this.#catalog = catalog
@@ -43,6 +45,10 @@ export class Player {
 		const abort = new Promise<void>((resolve, reject) => {
 			this.#close = resolve
 			this.#abort = reject
+		})
+
+		this.#backend.addListener((msg) => {
+			this.#onWorkerMessage(msg)
 		})
 
 		// Async work
@@ -215,6 +221,16 @@ export class Player {
 
 	async play() {
 		await this.#backend.play()
+	}
+
+	#onWorkerMessage(msg: MessageEvent) {
+		if (this.#messageCallback) {
+			this.#messageCallback(msg.data)
+		}
+	}
+
+	setMessageCallback(callback: (msg: any) => void) {
+		this.#messageCallback = callback
 	}
 
 	/*

@@ -25,9 +25,11 @@ export default function Watch(props: { name: string }) {
 	const [volume, setVolume] = createSignal(50)
 	const [reader, setReader] = createSignal<TrackReader | undefined>()
 	const [messageInput, setMessageInput] = createSignal("")
+
 	let clientId = -1 // Default to invalid ID
 	const [sliderValue, setSliderValue] = createSignal(0)
 	const [hoverValue, setHoverValue] = createSignal(0)
+
 	if (urlSearchParams.has("leader")) {
 		clientId = 0 // Leader gets ID 0
 		console.log("Client is leader with ID:", clientId)
@@ -56,8 +58,8 @@ export default function Watch(props: { name: string }) {
 	const syncNamespace = 'sync-namespace'
 	let trackWriter!: TrackWriter
 	let subscriber!: SubscribeSend
-	let objectNumber = 0//clientId === 0 ? 0 : 100
-	let groupNumber = 0//clientId === 0 ? 0 : 1
+	let objectNumber = 0 //clientId === 0 ? 0 : 100
+	let groupNumber = 0 //clientId === 0 ? 0 : 1
 	// ---------------------------------------------------------
 
 	createEffect(async () => {
@@ -78,7 +80,15 @@ export default function Watch(props: { name: string }) {
 		// TODO remove this when WebTransport correctly supports self-signed certificates
 		const fingerprint = server.startsWith("localhost") ? `https://${server}/fingerprint` : undefined
 
-		Player.create({ url, fingerprint, canvas, namespace }).then(setPlayer).catch(setError)
+		Player.create({ url, fingerprint, canvas, namespace }).then((player) => {
+			setPlayer(player);
+	
+			player.setMessageCallback((msg) => {
+				// const val = Math.min(Math.ceil(sliderValue() + (msg.keyFrameInterval / 1000)), 540)
+				const val = Math.min(Math.ceil(sliderValue() + (msg.keyFrameInterval / 1000)), 540)
+				setSliderValue(val)
+			});
+		}).catch(setError);
 
 		if (clientId !== 0) {
 			runFollower()
@@ -101,7 +111,7 @@ export default function Watch(props: { name: string }) {
 		  document.body.classList.remove("leader-theme");
 		  document.body.classList.add("follower-theme");
 		}
-	  });
+	});
 
 	const createTrackWriter = async () => {
 		if(isTrackWriterCreated()){
@@ -366,7 +376,7 @@ export default function Watch(props: { name: string }) {
 		  <div class="youtube-layout">
 			<div class="video-section">
 			  <div class="video-container">
-				<canvas ref={canvas} onClick={() => setIsPaused(!isPaused())} />
+				<canvas ref={canvas} />
 				<div class="slider-overlay">
 				{clientId === 0 && (
 				  <div class="slider-wrap">
@@ -392,7 +402,6 @@ export default function Watch(props: { name: string }) {
 						let newSecond = minValue + percent * (maxValue - minValue);
 						const snappedValue = Math.round(newSecond / stepSize) * stepSize;
 						const boundedValue = Math.max(minValue, Math.min(snappedValue, maxValue));
-
 
 						setHoverValue(boundedValue);
 					}}

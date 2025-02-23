@@ -66,11 +66,13 @@ export class Parser {
 		const samples = [...this.#samples]
 		this.#samples.length = 0
 
-		// const isKeyFrame = samples[0]?.sample.is_sync
-		// if (isKeyFrame !== undefined) {
-		// 	return { samples, isKeyFrame }
-		// }
-		 return { samples, isKeyFrame: true }
+		const isVideo = samples[0]?.track.type
+		const isKeyFrame = samples[0]?.sample.is_sync
 
+		if (isVideo === "video" && isKeyFrame) {
+			return { samples, isKeyFrame: true }
+		}
+
+		return { samples, isKeyFrame: false }
 	}
 }

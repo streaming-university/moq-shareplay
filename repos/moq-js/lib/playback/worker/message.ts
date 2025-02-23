@@ -85,9 +85,14 @@ export interface ToWorker {
 }
 
 // Any top-level messages that can be sent from the worker.
+// export interface FromWorker {
+// 	// Sent back to the main thread regularly to update the UI
+// 	timeline?: Timeline
+// }
+
 export interface FromWorker {
-	// Sent back to the main thread regularly to update the UI
-	timeline?: Timeline
+	// Sent back to the main thread regularly to update the video slider/timeline
+	keyFrameInterval?: number
 }
 
 /*

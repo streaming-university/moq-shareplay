@@ -66,7 +66,8 @@ export class Renderer {
 			const written = this.#ring.write(frame)
 
 			if (written < frame.numberOfFrames) {
-				console.warn(`droppped ${frame.numberOfFrames - written} audio samples`)
+				// console.warn(`droppped ${frame.numberOfFrames - written} audio samples`)
+				//TODO: closed warning for demo
 			}
 		}
 	}

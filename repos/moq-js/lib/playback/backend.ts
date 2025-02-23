@@ -24,6 +24,9 @@ export default class Backend {
 	// The audio context, which must be created on the main thread.
 	#audio?: Audio
 
+	keyFrameInterval = 0
+	private listeners: ((msg: MessageEvent) => void)[] = []
+
 	constructor(config: PlayerConfig) {
 		// TODO does this block the main thread? If so, make this async
 		// @ts-expect-error: The Vite typing is wrong https://github.com/vitejs/vite/blob/22bd67d70a1390daae19ca33d7de162140d533d6/packages/vite/client.d.ts#L182
@@ -101,12 +104,18 @@ export default class Backend {
 	}
 
 	private on(e: MessageEvent) {
-		const msg = e.data as Message.FromWorker
+		this.keyFrameInterval = e.data.keyFrameInterval
+		this.listeners.forEach((listener) => listener(e))
 
+		// const msg = e.data as Message.FromWorker
 		// Don't print the verbose timeline message.
-		if (!msg.timeline) {
-			//console.log("received message from worker to main", msg)
-		}
+		// if (!msg.timeline) {
+		// 	//console.log("received message from worker to main", msg)
+		// }
+	}
+
+	public addListener(callback: (msg: MessageEvent) => void) {
+		this.listeners.push(callback)
 	}
 }
 

@@ -20,6 +20,8 @@ class Worker {
 	#audio?: Audio.Renderer
 	#video?: Video.Renderer
 
+	lastKeyFrameTime = Date.now()
+
 	on(e: MessageEvent) {
 		const msg = e.data as Message.ToWorker
 
@@ -92,11 +94,17 @@ class Worker {
 			}
 
 			const { samples, isKeyFrame } = container.decode(chunk.payload)
-			//if (isKeyFrame) {
-				for (const frame of samples) {
-					await segment.write(frame)
-				}
-			//}
+
+			if (isKeyFrame) {
+				const currentTime = Date.now()
+				const interval = currentTime - this.lastKeyFrameTime
+				this.lastKeyFrameTime = currentTime
+				_send({ keyFrameInterval: interval })
+			}
+
+			for (const frame of samples) {
+				await segment.write(frame)
+			}
 		}
 
 		// We done.
