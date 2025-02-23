@@ -8,7 +8,7 @@
 	--button-bg: #b70000;
 	--button-hover-bg: #ffb52e;
 	--slider-bg: linear-gradient(to right, #b70000 var(--volume-percent, 50%), #ffffff var(--volume-percent, 50%));
-  }
+}
 
 /* Follower Theme (clientId !== 0) */
 .follower-theme {
@@ -20,17 +20,17 @@
 	--button-bg: #007bff;
 	--button-hover-bg: #4da8da;
 	--slider-bg: linear-gradient(to right, #007bff var(--volume-percent, 50%), #ffffff var(--volume-percent, 50%));
-  }
+}
 
-
-  html, body {
+html,
+body {
 	margin-bottom: 100px;
-    width: 100vw;
-    height: 100vh;
-    overflow: hidden; /* Prevent any scrolling */
-    display: flex;
-    justify-content: center;
-    align-items: center;
+	width: 100vw;
+	height: 100vh;
+	overflow: hidden; /* Prevent any scrolling */
+	display: flex;
+	justify-content: center;
+	align-items: center;
 }
 
 .youtube-layout {
@@ -51,17 +51,20 @@
 }
 
 .chat-section {
-    width: 400px;
-    height: calc(100vh - 40px);
-    background: var(—background-color);
-    border-radius: 12px;
-    display: flex;
-    flex-direction: column;
-    border-left: 2px solid var(—border-color);
-    border-top: 22px solid var(—border-color);
-    box-shadow: 0 0 15px var(—box-shadow-color);
-    transition: transform 0.3s ease-in-out, opacity 0.3s ease-in-out, width 0.3s ease-in-out;
-    overflow: hidden;
+	width: 400px;
+	height: calc(100vh - 40px);
+	background: var(—background-color);
+	border-radius: 12px;
+	display: flex;
+	flex-direction: column;
+	border-left: 2px solid var(—border-color);
+	border-top: 22px solid var(—border-color);
+	box-shadow: 0 0 15px var(—box-shadow-color);
+	transition:
+		transform 0.3s ease-in-out,
+		opacity 0.3s ease-in-out,
+		width 0.3s ease-in-out;
+	overflow: hidden;
 }
 
 .controls-button {
@@ -93,22 +96,29 @@
 	appearance: none;
 	width: 200px;
 	height: 6px;
-	background: linear-gradient(to right, var(--button-bg) var(--volume-percent, 50%), #ffffff var(--volume-percent, 50%));
+	background: linear-gradient(
+		to right,
+		var(--button-bg) var(--volume-percent, 50%),
+		#ffffff var(--volume-percent, 50%)
+	);
 	border-radius: 3px;
 	outline: none;
 	transition: background 0.2s ease-in-out;
-  }
+}
 
-
-  #volume::-webkit-slider-runnable-track {
+#volume::-webkit-slider-runnable-track {
 	width: 100%;
 	height: 6px;
 	border-radius: 3px;
-	background: linear-gradient(to right, var(--button-bg) var(--volume-percent, 50%), #ffffff var(--volume-percent, 50%));
-  }
+	background: linear-gradient(
+		to right,
+		var(--button-bg) var(--volume-percent, 50%),
+		#ffffff var(--volume-percent, 50%)
+	);
+}
 
-  /* Customizing the thumb (the circular handle) */
-  #volume::-webkit-slider-thumb {
+/* Customizing the thumb (the circular handle) */
+#volume::-webkit-slider-thumb {
 	-webkit-appearance: none;
 	appearance: none;
 	width: 16px;
@@ -118,8 +128,7 @@
 	border-radius: 50%;
 	cursor: pointer;
 	margin-top: -5px; /* Center the thumb */
-  }
-
+}
 
 /* YouTube-style layout */
 .youtube-layout {
@@ -138,29 +147,28 @@
 }
 
 .video-container {
-    width: 100vw; /* Make sure it doesn't exceed viewport width */
-    height: calc(100vh - 100px); /* Adjust height dynamically based on viewport */
-    max-width: 100%; /* Ensure it does not exceed the parent */
-    display: flex;
-    justify-content: center;
-    align-items: center;
-     /* Prevents any scrollbars */
+	width: 100vw; /* Make sure it doesn't exceed viewport width */
+	height: calc(100vh - 100px); /* Adjust height dynamically based on viewport */
+	max-width: 100%; /* Ensure it does not exceed the parent */
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	/* Prevents any scrollbars */
 }
 
 canvas {
-    width: 100%; /* Takes up full width */
-    height: auto; /* Maintain aspect ratio */
-    max-height: 90vh; /* Ensures it fits within the viewport */
-    aspect-ratio: 16/9; /* Maintains the correct aspect ratio */
-    display: block; /* Remove extra space below inline elements */
-    object-fit: contain; /* Ensures the content is scaled properly */
-    cursor: pointer;
+	width: 100%; /* Takes up full width */
+	height: auto; /* Maintain aspect ratio */
+	max-height: 90vh; /* Ensures it fits within the viewport */
+	aspect-ratio: 16/9; /* Maintains the correct aspect ratio */
+	display: block; /* Remove extra space below inline elements */
+	object-fit: contain; /* Ensures the content is scaled properly */
+	cursor: pointer;
 }
-
 
 .video-info {
 	padding: 20px;
-	background:var(--background-color);
+	background: var(--background-color);
 	border-radius: 12px;
 	margin-bottom: 16px;
 }
@@ -238,27 +246,30 @@ canvas {
 
 /* Chat section */
 .chat-section {
-    width: 400px;
-    height: calc(100vh - 60px); /* Adjusted height */
-    background: var(--background-color);
-    border-radius: 12px; /* Ensures smooth rounded edges */
-    display: flex;
-    flex-direction: column;
-    border: 2px solid var(--border-color);
-    box-shadow: 0 0 20px var(--box-shadow-color);
-    transition: transform 0.3s ease-in-out, opacity 0.3s ease-in-out, width 0.3s ease-in-out;
-    overflow: hidden;
+	width: 400px;
+	height: calc(100vh - 60px); /* Adjusted height */
+	background: var(--background-color);
+	border-radius: 12px; /* Ensures smooth rounded edges */
+	display: flex;
+	flex-direction: column;
+	border: 2px solid var(--border-color);
+	box-shadow: 0 0 20px var(--box-shadow-color);
+	transition:
+		transform 0.3s ease-in-out,
+		opacity 0.3s ease-in-out,
+		width 0.3s ease-in-out;
+	overflow: hidden;
 	margin-top: 20px;
-    position: relative;
+	position: relative;
 }
 
 .chat-header {
-    padding: 16px;
-    border-bottom: 2px solid var(--border-color);
-    font-weight: bold;
-    background: var(--background-color);
-    position: relative;
-    z-index: 2;
+	padding: 16px;
+	border-bottom: 2px solid var(--border-color);
+	font-weight: bold;
+	background: var(--background-color);
+	position: relative;
+	z-index: 2;
 }
 
 .chat-messages {
@@ -378,22 +389,22 @@ canvas {
 	gap: 24px;
 	padding: 24px;
 	margin: 0 auto;
-  }
+}
 
-  .video-section {
+.video-section {
 	flex: 1;
 	min-width: 0;
-  }
+}
 
-  .video-container {
+.video-container {
 	width: 100%;
 	background: #000;
 	border-radius: 12px;
 	overflow: hidden;
 	position: relative;
-  }
+}
 
-  .slider-overlay {
+.slider-overlay {
 	position: absolute;
 	bottom: 20px;
 	left: 50%;
@@ -401,33 +412,33 @@ canvas {
 	width: 90%;
 	max-width: 1500px;
 	z-index: 10;
-  }
+}
 
-  .slider-wrap {
+.slider-wrap {
 	position: relative;
 	width: 100%;
 	height: 24px;
-  }
+}
 
-  #time-slider {
+#time-slider {
 	-webkit-appearance: none;
 	width: 100%;
 	height: 4px;
 	background: #2e2e2e;
 	border-radius: 2px;
 	cursor: pointer;
-  }
+}
 
-  #time-slider::-webkit-slider-thumb {
+#time-slider::-webkit-slider-thumb {
 	-webkit-appearance: none;
 	width: 10px;
 	height: 10px;
 	background: #fff;
 	border-radius: 50%;
 	pointer-events: none;
-  }
+}
 
-  .tooltip {
+.tooltip {
 	position: absolute;
 	bottom: 32px;
 	left: 0;
@@ -445,6 +456,6 @@ canvas {
 	-o-border-radius: 4px;
 }
 
-  .slider-wrap:hover .tooltip {
+.slider-wrap:hover .tooltip {
 	opacity: 1;
-  }
+}

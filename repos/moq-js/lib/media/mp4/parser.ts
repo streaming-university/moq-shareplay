@@ -70,9 +70,10 @@ export class Parser {
 		const isKeyFrame = samples[0]?.sample.is_sync
 
 		if (isVideo === "video" && isKeyFrame) {
-			return { samples, isKeyFrame: true }
+			const playbackTime = samples[0]?.sample.dts / samples[0]?.track.timescale //TODO: this is not fully correct, must be done with PTS?
+			return { samples, isKeyFrame: true, playbackTime }
 		}
 
-		return { samples, isKeyFrame: false }
+		return { samples, isKeyFrame: false, playbackTime: -1 }
 	}
 }

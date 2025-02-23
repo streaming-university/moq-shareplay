@@ -20,8 +20,6 @@ class Worker {
 	#audio?: Audio.Renderer
 	#video?: Video.Renderer
 
-	lastKeyFrameTime = Date.now()
-
 	on(e: MessageEvent) {
 		const msg = e.data as Message.ToWorker
 
@@ -93,13 +91,10 @@ class Worker {
 				throw new Error(`invalid payload: ${chunk.payload}`)
 			}
 
-			const { samples, isKeyFrame } = container.decode(chunk.payload)
+			const { samples, isKeyFrame, playbackTime } = container.decode(chunk.payload)
 
 			if (isKeyFrame) {
-				const currentTime = Date.now()
-				const interval = currentTime - this.lastKeyFrameTime
-				this.lastKeyFrameTime = currentTime
-				_send({ keyFrameInterval: interval })
+				_send({ playbackTime })
 			}
 
 			for (const frame of samples) {

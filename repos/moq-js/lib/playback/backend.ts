@@ -24,7 +24,6 @@ export default class Backend {
 	// The audio context, which must be created on the main thread.
 	#audio?: Audio
 
-	keyFrameInterval = 0
 	private listeners: ((msg: MessageEvent) => void)[] = []
 
 	constructor(config: PlayerConfig) {
@@ -104,7 +103,6 @@ export default class Backend {
 	}
 
 	private on(e: MessageEvent) {
-		this.keyFrameInterval = e.data.keyFrameInterval
 		this.listeners.forEach((listener) => listener(e))
 
 		// const msg = e.data as Message.FromWorker

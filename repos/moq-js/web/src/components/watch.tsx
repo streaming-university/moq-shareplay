@@ -84,9 +84,10 @@ export default function Watch(props: { name: string }) {
 			setPlayer(player);
 	
 			player.setMessageCallback((msg) => {
-				// const val = Math.min(Math.ceil(sliderValue() + (msg.keyFrameInterval / 1000)), 540)
-				const val = Math.min(Math.ceil(sliderValue() + (msg.keyFrameInterval / 1000)), 540)
-				setSliderValue(val)
+				const value = Math.min(msg.playbackTime, 540)
+				const slider = document.getElementById("time-slider") as HTMLInputElement;
+				slider.value = value.toString();
+				setSliderValue(value)
 			});
 		}).catch(setError);
 
@@ -402,14 +403,16 @@ export default function Watch(props: { name: string }) {
 						let newSecond = minValue + percent * (maxValue - minValue);
 						const snappedValue = Math.round(newSecond / stepSize) * stepSize;
 						const boundedValue = Math.max(minValue, Math.min(snappedValue, maxValue));
-
+						
 						setHoverValue(boundedValue);
 					}}
 					style={{
 						background: `linear-gradient(to right, #f00 0%, #f00 ${(sliderValue() / 540) * 100}%, #ccc ${(sliderValue() / 540) * 100}%, #ccc 100%)`
 					}}
 					/>
-					<div class="tooltip" style={{ left: `${(hoverValue() / 540) * 100}%` }}>{formatTime(hoverValue())}</div>
+					<div class="tooltip" style={{ left: `${(hoverValue() / 540) * 100}%` }}>
+						{formatTime(hoverValue())}
+					</div>
 
 				  </div>
 				)}</div>

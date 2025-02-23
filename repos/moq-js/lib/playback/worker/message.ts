@@ -92,7 +92,7 @@ export interface ToWorker {
 
 export interface FromWorker {
 	// Sent back to the main thread regularly to update the video slider/timeline
-	keyFrameInterval?: number
+	playbackTime: number
 }
 
 /*
