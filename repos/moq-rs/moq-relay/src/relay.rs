@@ -132,6 +132,11 @@ impl Relay {
 							consumer: subscriber.map(|subscriber| Consumer::new(subscriber, locals, api, forward)),
 						};
 
+						log::debug!("Creating MoQ session: producer={:?}, consumer={:?}",
+    					session.producer.is_some(),
+    					session.consumer.is_some()
+						);
+
 						if let Err(err) = session.run().await {
 							log::warn!("failed to run MoQ session: {}", err);
 						}

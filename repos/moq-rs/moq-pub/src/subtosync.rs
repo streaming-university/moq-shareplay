@@ -40,7 +40,7 @@ impl SubToSync {
 
 
                 loop {
-                    let track = tracks_writer.create(sync_track_name).unwrap();
+                    let track = tracks_writer.create(sync_track_name).expect("Failed to create sync track");
                     match subscriber.subscribe_sync(track).await {
                         Ok(_) => {
 							log::info!("Exiting the subscription now.");

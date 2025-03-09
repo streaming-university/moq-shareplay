@@ -22,6 +22,11 @@ impl Session {
 			tasks.push(consumer.run().boxed());
 		}
 
-		tasks.select_next_some().await
+		while let Some(result) = tasks.next().await {
+			if let Err(err) = result {
+				log::warn!("Session task failed: {}", err);
+			}
+		}
+		Ok(())
 	}
 }
