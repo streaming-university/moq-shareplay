@@ -99,7 +99,7 @@ async fn main() -> anyhow::Result<()> {
 			println!("Received message in the moq-pub: {}", *value);
 		}
 	});
-	
+
 	tokio::select! {
 		res = session.run() => res.context("session error")?,
 		res = run_media_from_group_with_a_channel(media, Some(0), Some(0), sync_value_rx.clone()) => res.context("media error")?,
@@ -166,7 +166,7 @@ async fn load_keyframes_from_file(filename: &str) -> anyhow::Result<Vec<i32>> {
 
 async fn run_media_from_group_with_a_channel(mut media: Media, start_group: Option<u32>, start_object: Option<u32>, mut sync_value_rx: watch::Receiver<String>,) -> anyhow::Result<()> {
 	loop{
-		
+
 	log::debug!(
 		"Starting run_media with mdat : {:?}  request",
 		start_group
@@ -252,9 +252,19 @@ async fn run_media_from_group_with_a_channel(mut media: Media, start_group: Opti
 
 	let mut remaining_frames = frame_atoms_for_playback.len();
 
-	// while ( total_frames < frame_atoms.len()) {
-	while remaining_frames > 0 {
+	 while ( total_frames < frame_atoms.len()) {
 		let mut batch = Vec::new();
+		log::info!("Frame index is: {}, frame atoms length is: {}", frame_index, frame_atoms.len());
+		if frame_index+total_frames+2 >= frame_atoms.len() {
+				log::info!("End of video reached. Restarting playback from beginning...");
+
+				frame_index = 0;
+				total_frames = 0;
+				frame_atoms_for_playback = frame_atoms.clone();
+			}
+
+
+		log::info!("Total frames is: {}, frame atoms length is: {}", total_frames, frame_atoms.len());
 
 		if !play {
 			log::info!("Playback paused. Waiting for resume signal...");
@@ -386,10 +396,9 @@ async fn run_media_from_group_with_a_channel(mut media: Media, start_group: Opti
 		// Log playback metrics
 		let elapsed = start_time.elapsed().as_secs_f64();
 		let fps = total_frames as f64 / elapsed;
-		remaining_frames -= 1;
 		tokio::time::sleep(batch_delay).await;
 	}
-	
+
 	}
 
 
@@ -638,6 +647,7 @@ async fn run_media_from_group(mut media: Media, start_group: Option<u32>, start_
 					.unwrap()
 					.contains("moof")
 			{
+
 				let mut frame_pair = Vec::new();
 
 				for offset in 0..2 {
