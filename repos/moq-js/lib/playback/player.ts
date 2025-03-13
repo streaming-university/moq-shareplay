@@ -28,7 +28,7 @@ export class Player {
 
 	#connection: Connection
 	#catalog: Catalog.Root
-
+	#muted: boolean = true
 	// Running is a promise that resolves when the player is closed.
 	// #close is called with no error, while #abort is called with an error.
 	#running: Promise<void>
@@ -71,7 +71,15 @@ export class Player {
 	getConnection(): Connection {
 		return this.#connection
 	}
+	isMuted(): boolean {
+		return this.#muted
+	}
 
+	// New: Set muted state and adjust volume accordingly
+	setMuted(muted: boolean) {
+		this.#muted = muted
+		this.setVolume(0) // If muted, set volume to 0; otherwise, restore previous volume
+	}
 	setVolume(level: number) {
 		this.#backend.setVolume(level)
 	}

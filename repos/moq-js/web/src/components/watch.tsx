@@ -72,8 +72,9 @@ export default function Watch(props: { name: string }) {
 		if (slider) {
 			slider.value = `${initialVolume}`; // Set slider value
 			slider.style.setProperty("--volume-percent", `${initialVolume}%`); // Set initial CSS variable
+			usePlayer()?.setMuted(true);
 			setVolume(initialVolume); // Update state
-			usePlayer()?.setVolume(initialVolume / 100); // Set player volume
+			usePlayer()?.setVolume(initialVolume / 100);
 		}
 
 		// Special case localhost to fetch the TLS fingerprint from the server.
@@ -82,7 +83,7 @@ export default function Watch(props: { name: string }) {
 
 		Player.create({ url, fingerprint, canvas, namespace }).then((player) => {
 			setPlayer(player);
-	
+
 			player.setMessageCallback((msg) => {
 				const value = Math.min(msg.playbackTime, 540)
 				const slider = document.getElementById("time-slider") as HTMLInputElement;
@@ -328,13 +329,22 @@ export default function Watch(props: { name: string }) {
 	}
 
 	const changeVolume = (event: Event) => {
-		const volumeValue = (event.target as HTMLInputElement).value
-		setVolume(Number(volumeValue))
-		usePlayer()?.setVolume(Number(volumeValue) / 100)
+		const volumeValue = Number((event.target as HTMLInputElement).value);
+		setVolume(volumeValue);
 
-		const slider = event.target as HTMLInputElement
-		slider.style.setProperty('--volume-percent', `${volumeValue}%`)
-	}
+		const player = usePlayer();
+		if (player) {
+			if (player.isMuted() && volumeValue > 0) {
+				console.log("User interaction is here, volume will be setting now.");
+				player.setMuted(false); // Unmute when user interacts
+				player.play();
+			}
+			player.setVolume(volumeValue / 100);
+		}
+
+		const slider = event.target as HTMLInputElement;
+		slider.style.setProperty('--volume-percent', `${volumeValue}%`);
+	};
 
 	const play = () => {
 		setIsPaused(false);
@@ -403,7 +413,7 @@ export default function Watch(props: { name: string }) {
 						let newSecond = minValue + percent * (maxValue - minValue);
 						const snappedValue = Math.round(newSecond / stepSize) * stepSize;
 						const boundedValue = Math.max(minValue, Math.min(snappedValue, maxValue));
-						
+
 						setHoverValue(boundedValue);
 					}}
 					style={{
