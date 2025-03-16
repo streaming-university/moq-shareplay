@@ -20,5 +20,10 @@ cd repos/moq-rs; ./dev/relay
 ```
 ```
 # Open a new terminal, then type:
-cd repos/moq-rs; ./dev/pub
+cd repos/moq-rs; ./dev/pub <room_name>
 ```
+
+# Watch in Browser
+As a leader : ```https://localhost:4321/?room=room<room_name>&role=leader```
+
+As a follower : ```https://localhost:4321/?room=room<room_name>&role=follower<id>```

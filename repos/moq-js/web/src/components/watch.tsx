@@ -5,7 +5,7 @@ import { TrackReader, TrackWriter, type TrackChunk } from '../../../lib/transpor
 import { SubscribeSend } from '../../../lib/transport/subscriber'
 import './watch.css'
 
-export default function Watch(props: { name: string }) {
+export default function Watch() {
 	// Use query params to allow overriding environment variables.
 	const urlSearchParams = new URLSearchParams(window.location.search)
 	const params = Object.fromEntries(urlSearchParams.entries())
@@ -26,36 +26,33 @@ export default function Watch(props: { name: string }) {
 	const [reader, setReader] = createSignal<TrackReader | undefined>()
 	const [messageInput, setMessageInput] = createSignal("")
 
-	let clientId = -1 // Default to invalid ID
 	const [sliderValue, setSliderValue] = createSignal(0)
 	const [hoverValue, setHoverValue] = createSignal(0)
 
-	if (urlSearchParams.has("leader")) {
-		clientId = 0 // Leader gets ID 0
-		console.log("Client is leader with ID:", clientId)
-	} else {
-		for (const [key] of urlSearchParams.entries()) {
-			if (key.startsWith("follower")) {
-				const followerId = parseInt(key.replace("follower", ""), 10)
+	let clientId = -1; // Default to invalid ID
+	let role: "leader" | "follower" | null = null;
 
-				if (followerId > 0) { // Accept only follower IDs > 0
-					clientId = followerId
-					console.log(`Client is follower with ID: ${clientId}`)
-				} else {
-					console.error("Invalid follower ID (must be follower1, follower2, ... and follower0 is not allowed)")
-				}
-				break
-			}
+	const roomName = params.room ?? null; // e.g. ?room=room1
+
+	if (params.role === "leader") {
+		role = "leader";
+		clientId = 0; // Leader gets ID 0
+		console.log(`Client is LEADER in room: ${roomName}, ID: ${clientId}`);
+	} else if (params.role?.startsWith("follower")) {
+		const followerId = parseInt(params.role.replace("follower", ""), 10);
+
+		if (followerId > 0) {
+			role = "follower";
+			clientId = followerId;
+			console.log(`Client is FOLLOWER in room: ${roomName}, ID: ${clientId}`);
+		} else {
+			console.error("Invalid follower ID (must be follower1, follower2, ... and follower0 is not allowed)");
 		}
-	}
-
-	if (clientId === -1) {
-		console.error("No valid leader or follower role specified in the URL")
 	}
 
 	// ----------- variables for sync functionality ------------
 	const syncTrackName = 'sync-track'
-	const syncNamespace = 'sync-namespace'
+	const syncNamespace = `sync-namespace-${roomName}`
 	let trackWriter!: TrackWriter
 	let subscriber!: SubscribeSend
 	let objectNumber = 0 //clientId === 0 ? 0 : 100
@@ -63,7 +60,6 @@ export default function Watch(props: { name: string }) {
 	// ---------------------------------------------------------
 
 	createEffect(async () => {
-		const namespace = props.name
 		const url = `https://${server}`
 
 		const initialVolume = 0; // Set your desired initial volume (0–100)
@@ -81,7 +77,7 @@ export default function Watch(props: { name: string }) {
 		// TODO remove this when WebTransport correctly supports self-signed certificates
 		const fingerprint = server.startsWith("localhost") ? `https://${server}/fingerprint` : undefined
 
-		Player.create({ url, fingerprint, canvas, namespace }).then((player) => {
+		Player.create({ url, fingerprint, canvas, namespace:roomName }).then((player) => {
 			setPlayer(player);
 
 			player.setMessageCallback((msg) => {

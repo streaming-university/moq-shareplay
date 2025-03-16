@@ -61,7 +61,7 @@ async fn main() -> anyhow::Result<()> {
 
 	let cli = Cli::parse();
 
-	let (writer, _, reader) = serve::Tracks::new(cli.name).produce();
+	let (writer, _, reader) = serve::Tracks::new(cli.name.clone()).produce();
 	let media = Media::new(writer)?;
 
 	let tls = cli.tls.load()?;
@@ -82,7 +82,7 @@ async fn main() -> anyhow::Result<()> {
 		.await
 		.context("failed to establish forward session")?;
 
-	let tracks = Tracks::new(String::from("sync-namespace"));
+	let tracks = Tracks::new(String::from(format!("sync-namespace-{}", cli.name)));
 	// let (tracks_writer, _tracks_request, mut tracks_reader) = tracks.produce();
 	// let track = tracks_reader.subscribe("sync-track").context("no sync track")?;
 
