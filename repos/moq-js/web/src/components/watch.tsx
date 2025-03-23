@@ -1,10 +1,10 @@
 /* eslint-disable jsx-a11y/media-has-caption */
 import { Player } from "@kixelated/moq/playback/player"
-import { createEffect, createMemo, createSignal, onCleanup, Show } from "solid-js"
-import { TrackReader, TrackWriter, type TrackChunk } from '../../../lib/transport/objects'
-import { SubscribeSend } from '../../../lib/transport/subscriber'
-import './watch.css'
-
+import { createEffect, createMemo, createSignal, onCleanup, Show, For } from "solid-js"
+import { TrackReader, TrackWriter, type TrackChunk } from "../../../lib/transport/objects"
+import { SubscribeSend } from "../../../lib/transport/subscriber"
+import "./watch.css"
+import "./menu.css"
 export default function Watch() {
 	// Use query params to allow overriding environment variables.
 	const urlSearchParams = new URLSearchParams(window.location.search)
@@ -18,7 +18,7 @@ export default function Watch() {
 	const [usePlayer, setPlayer] = createSignal<Player | undefined>()
 	const [showCatalog, setShowCatalog] = createSignal(false)
 	const [isPaused, setIsPaused] = createSignal(false)
-	const [showChat, setShowChat] = createSignal(true);
+	const [showChat, setShowChat] = createSignal(true)
 	const [isAnnounced, setIsAnnounced] = createSignal(false)
 	const [isTrackWriterCreated, setIsTrackWriterCreated] = createSignal(false)
 	const [isSubscribed, setIsSubscribed] = createSignal(false)
@@ -29,29 +29,95 @@ export default function Watch() {
 	const [sliderValue, setSliderValue] = createSignal(0)
 	const [hoverValue, setHoverValue] = createSignal(0)
 
-	let clientId = -1; // Default to invalid ID
-	let role: "leader" | "follower" | null = null;
+	let clientId = -1 // Default to invalid ID
+	let role: "leader" | "follower" | null = null
+	const roomName = params.room ?? null // e.g. ?room=room1
 
-	const roomName = params.room ?? null; // e.g. ?room=room1
+	// State for selected room and role
+	const [selectedRoom, setSelectedRoom] = createSignal<number | null>(null)
+	const [selectedRole, setSelectedRole] = createSignal<string | null>(null)
+
+	// Handle Join function to construct the URL dynamically
+	const handleJoin = () => {
+		if (!selectedRoom() || !selectedRole()) {
+			alert("Please select both a room and a role.")
+			return
+		}
+		const newUrl = new URL(window.location.href)
+		newUrl.searchParams.set("room", `room${selectedRoom()}`)
+		newUrl.searchParams.set("role", selectedRole()!)
+		window.location.href = newUrl.toString()
+	}
+
+	if (!params.room && !params.role) {
+		return (
+			<div class="main-menu">
+				<div class="title-container">
+					<h1 class="fancy-title">Select Room & Role</h1>
+				</div>
+				<div class="selection-container">
+					{/* Room Selection */}
+					<div class="room-selection">
+						<h2>ROOM</h2>
+						<div class="room-grid">
+							<For each={[1, 2, 3, 4, 5]}>
+								{(roomNum) => (
+									<button
+										class={`room-button ${selectedRoom() === roomNum ? "selected" : ""}`}
+										onClick={() => setSelectedRoom(roomNum)}
+									>
+										Room {roomNum}
+									</button>
+								)}
+							</For>
+						</div>
+					</div>
+
+					{/* Role Selection */}
+					<div class="role-selection">
+						<h2>ROLE</h2>
+						<div class="role-grid">
+							<For each={["leader", "follower"]}>
+								{(role) => (
+									<button
+										class={`role-button ${selectedRole() === role ? "selected" : ""}`}
+										onClick={() => setSelectedRole(role)}
+									>
+										{role.charAt(0).toUpperCase() + role.slice(1)}
+									</button>
+								)}
+							</For>
+						</div>
+					</div>
+
+				</div>
+
+				{/* Join Button */}
+				<button class="join-button" onClick={handleJoin} disabled={!selectedRoom() || !selectedRole()}>
+					Join
+				</button>
+			</div>
+		)
+	}
 
 	if (params.role === "leader") {
-		role = "leader";
-		clientId = 0; // Leader gets ID 0
-		console.log(`Client is LEADER in room: ${roomName}, ID: ${clientId}`);
+		role = "leader"
+		clientId = 0 // Leader gets ID 0
+		console.log(`Client is LEADER in room: ${roomName}, ID: ${clientId}`)
 	} else if (params.role?.startsWith("follower")) {
-		const followerId = parseInt(params.role.replace("follower", ""), 10);
+		const followerId = parseInt(params.role.replace("follower", ""), 10)
 
 		if (followerId > 0) {
-			role = "follower";
-			clientId = followerId;
-			console.log(`Client is FOLLOWER in room: ${roomName}, ID: ${clientId}`);
+			role = "follower"
+			clientId = followerId
+			console.log(`Client is FOLLOWER in room: ${roomName}, ID: ${clientId}`)
 		} else {
-			console.error("Invalid follower ID (must be follower1, follower2, ... and follower0 is not allowed)");
+			console.error("Invalid follower ID (must be follower1, follower2, ... and follower0 is not allowed)")
 		}
 	}
 
 	// ----------- variables for sync functionality ------------
-	const syncTrackName = 'sync-track'
+	const syncTrackName = "sync-track"
 	const syncNamespace = `sync-namespace-${roomName}`
 	let trackWriter!: TrackWriter
 	let subscriber!: SubscribeSend
@@ -62,31 +128,33 @@ export default function Watch() {
 	createEffect(async () => {
 		const url = `https://${server}`
 
-		const initialVolume = 0; // Set your desired initial volume (0–100)
-		const slider = document.querySelector(".volume-control input[type='range']") as HTMLInputElement;
+		const initialVolume = 0 // Set your desired initial volume (0–100)
+		const slider = document.querySelector(".volume-control input[type='range']") as HTMLInputElement
 
 		if (slider) {
-			slider.value = `${initialVolume}`; // Set slider value
-			slider.style.setProperty("--volume-percent", `${initialVolume}%`); // Set initial CSS variable
-			usePlayer()?.setMuted(true);
-			setVolume(initialVolume); // Update state
-			usePlayer()?.setVolume(initialVolume / 100);
+			slider.value = `${initialVolume}` // Set slider value
+			slider.style.setProperty("--volume-percent", `${initialVolume}%`) // Set initial CSS variable
+			usePlayer()?.setMuted(true)
+			setVolume(initialVolume) // Update state
+			usePlayer()?.setVolume(initialVolume / 100)
 		}
 
 		// Special case localhost to fetch the TLS fingerprint from the server.
 		// TODO remove this when WebTransport correctly supports self-signed certificates
 		const fingerprint = server.startsWith("localhost") ? `https://${server}/fingerprint` : undefined
 
-		Player.create({ url, fingerprint, canvas, namespace:roomName }).then((player) => {
-			setPlayer(player);
+		Player.create({ url, fingerprint, canvas, namespace: roomName })
+			.then((player) => {
+				setPlayer(player)
 
-			player.setMessageCallback((msg) => {
-				const value = Math.min(msg.playbackTime, 540)
-				const slider = document.getElementById("time-slider") as HTMLInputElement;
-				slider.value = value.toString();
-				setSliderValue(value)
-			});
-		}).catch(setError);
+				player.setMessageCallback((msg) => {
+					const value = Math.min(msg.playbackTime, 540)
+					const slider = document.getElementById("time-slider") as HTMLInputElement
+					slider.value = value.toString()
+					setSliderValue(value)
+				})
+			})
+			.catch(setError)
 
 		if (clientId !== 0) {
 			runFollower()
@@ -103,16 +171,16 @@ export default function Watch() {
 
 	createEffect(() => {
 		if (clientId === 0) {
-		  document.body.classList.remove("follower-theme");
-		  document.body.classList.add("leader-theme");
+			document.body.classList.remove("follower-theme")
+			document.body.classList.add("leader-theme")
 		} else {
-		  document.body.classList.remove("leader-theme");
-		  document.body.classList.add("follower-theme");
+			document.body.classList.remove("leader-theme")
+			document.body.classList.add("follower-theme")
 		}
-	});
+	})
 
 	const createTrackWriter = async () => {
-		if(isTrackWriterCreated()){
+		if (isTrackWriterCreated()) {
 			return
 		}
 
@@ -136,16 +204,14 @@ export default function Watch() {
 			trackWriter = writer
 
 			console.log("TrackWriter successfully created!")
-
 		} catch (err) {
 			if (err instanceof Error && err.message.includes("not yet locked to a reader")) {
-				console.warn(`TrackWriter already created for sending messages.`);
+				console.warn(`TrackWriter already created for sending messages.`)
 			} else {
-				console.error("Error creating TrackWriter: ", err);
+				console.error("Error creating TrackWriter: ", err)
 			}
 		}
 		setIsTrackWriterCreated(true)
-
 	}
 
 	const announceSyncNamespace = async () => {
@@ -153,7 +219,7 @@ export default function Watch() {
 			// console.error("Only the leader can announce a sync track")
 			return
 		}
-		if(isAnnounced()){
+		if (isAnnounced()) {
 			return
 		}
 
@@ -168,16 +234,14 @@ export default function Watch() {
 			await announceSend?.ok()
 
 			console.log(`Sync namespace (${syncNamespace}) successfully announced!`)
-
 		} catch (err) {
 			if (err instanceof Error && err.message.includes("already announce: sync-namespace")) {
-				console.warn(`Sync namespace (${syncNamespace}) already announced`);
+				console.warn(`Sync namespace (${syncNamespace}) already announced`)
 			} else {
-				console.error("Error announcing sync namespace:", err);
+				console.error("Error announcing sync namespace:", err)
 			}
 		}
 		setIsAnnounced(true)
-
 	}
 
 	const syncTrackListener = async () => {
@@ -196,9 +260,9 @@ export default function Watch() {
 						console.log(`Received message: ${message}`)
 
 						if (message === "play" && clientId !== 0) {
-							handleContinue();
+							handleContinue()
 						} else if (message === "pause" && clientId !== 0) {
-							pause();
+							pause()
 						}
 
 						const chatMessages = document.querySelector(".chat-messages")
@@ -218,7 +282,7 @@ export default function Watch() {
 	}
 
 	const subscribeToSyncTrack = async () => {
-		if(isSubscribed()){
+		if (isSubscribed()) {
 			return
 		}
 
@@ -228,7 +292,6 @@ export default function Watch() {
 		// Subscribe to our own track (since we don't have an external subscriber)
 		const sub = await connection?.subscribe(syncNamespace, syncTrackName)
 
-
 		if (!sub) {
 			console.error("Failed to subscribe")
 			return
@@ -236,11 +299,9 @@ export default function Watch() {
 		subscriber = sub
 		setIsSubscribed(true)
 		syncTrackListener()
-
 	}
 
 	const sendFrameMessage = async (frame: string) => {
-
 		const payload = new TextEncoder().encode(frame)
 
 		try {
@@ -293,12 +354,11 @@ export default function Watch() {
 				payload: payload,
 			})
 			console.log("Sync message sent successfully")
-			if (isPaused()){
-				setIsPaused(false);
-			}else{
-				setIsPaused(true);
+			if (isPaused()) {
+				setIsPaused(false)
+			} else {
+				setIsPaused(true)
 			}
-
 		} catch (err) {
 			console.error("Error sending message: ", err)
 		}
@@ -309,7 +369,6 @@ export default function Watch() {
 			await announceSyncNamespace()
 			await createTrackWriter()
 			await subscribeToSyncTrack()
-
 		} catch (err) {
 			console.error("Error running client: ", err)
 		}
@@ -318,46 +377,46 @@ export default function Watch() {
 	const runFollower = async () => {
 		try {
 			await subscribeToSyncTrack()
-
 		} catch (err) {
 			console.error("Error running client: ", err)
 		}
 	}
 
 	const changeVolume = (event: Event) => {
-		const volumeValue = Number((event.target as HTMLInputElement).value);
-		setVolume(volumeValue);
+		const volumeValue = Number((event.target as HTMLInputElement).value)
+		setVolume(volumeValue)
 
-		const player = usePlayer();
+		const player = usePlayer()
 		if (player) {
 			if (player.isMuted() && volumeValue > 0) {
-				console.log("User interaction is here, volume will be setting now.");
-				player.setMuted(false); // Unmute when user interacts
-				player.play();
+				console.log("User interaction is here, volume will be setting now.")
+				player.setMuted(false) // Unmute when user interacts
+				player.play()
 			}
-			player.setVolume(volumeValue / 100);
+			player.setVolume(volumeValue / 100)
 		}
 
-		const slider = event.target as HTMLInputElement;
-		slider.style.setProperty('--volume-percent', `${volumeValue}%`);
-	};
+		const slider = event.target as HTMLInputElement
+		slider.style.setProperty("--volume-percent", `${volumeValue}%`)
+	}
 
 	const play = () => {
-		setIsPaused(false);
+		setIsPaused(false)
 		usePlayer()?.play().catch(setError)
 	}
 
 	const pause = () => {
-		usePlayer()?.pause().catch(setError);
-		setIsPaused(true);
+		usePlayer()?.pause().catch(setError)
+		setIsPaused(true)
 	}
 
 	const handleContinue = () => {
-		setIsPaused(false);
+		setIsPaused(false)
 		usePlayer()?.resubscribe().catch(setError)
 	}
 
-	const sendTrackStatusRequest = () => { //Trial
+	const sendTrackStatusRequest = () => {
+		//Trial
 		usePlayer()?.getConnection()?.sendTrackStatusRequest(syncNamespace, syncTrackName)
 	}
 
@@ -371,137 +430,145 @@ export default function Watch() {
 	})
 
 	const formatTime = (seconds: number) => {
-		const minutes = Math.floor(seconds / 60);
-		const secs = seconds % 60;
-		return `${minutes}:${secs.toString().padStart(2, '0')}`;
-	};
+		const minutes = Math.floor(seconds / 60)
+		const secs = seconds % 60
+		return `${minutes}:${secs.toString().padStart(2, "0")}`
+	}
+
+	const goToMainMenu = () => {
+		const newUrl = new URL(window.location.href)
+		newUrl.pathname = "/"
+		newUrl.search = ""
+		console.log(`Redirecting user to: ${newUrl.toString()}`)
+		window.location.href = newUrl.toString()
+	}
 
 	// NOTE: The canvas automatically has width/height set to the decoded video size.
 	// TODO shrink it if needed via CSS
 	return (
 		<>
-		  <div class="youtube-layout">
-			<div class="video-section">
-			  <div class="video-container">
-				<canvas ref={canvas} />
-				<div class="slider-overlay">
-				{clientId === 0 && (
-				  <div class="slider-wrap">
-					<input
-					  id="time-slider"
-					  type="range"
-					  min="0"
-					  max="540"
-					  onInput={(e) => {
-						setSliderValue(hoverValue)
-						sendFrameMessage(hoverValue().toString());
-					  }}
-					  onMouseMove={(e) => {
-						const slider = e.currentTarget as HTMLInputElement;
-						const rect = slider.getBoundingClientRect();
-						const offsetX = e.clientX - rect.left;
-						const percent = offsetX / rect.width;
+			<div class="youtube-layout">
+				<div class="video-section">
+					<div class="video-container">
+						<canvas ref={canvas} />
+						<div class="slider-overlay">
+							{clientId === 0 && (
+								<div class="slider-wrap">
+									<input
+										id="time-slider"
+										type="range"
+										min="0"
+										max="540"
+										onInput={(e) => {
+											setSliderValue(hoverValue)
+											sendFrameMessage(hoverValue().toString())
+										}}
+										onMouseMove={(e) => {
+											const slider = e.currentTarget as HTMLInputElement
+											const rect = slider.getBoundingClientRect()
+											const offsetX = e.clientX - rect.left
+											const percent = offsetX / rect.width
 
-						const minValue = parseFloat(slider.min);
-						const maxValue = parseFloat(slider.max);
-						const stepSize = parseFloat(slider.step) || 1;
+											const minValue = parseFloat(slider.min)
+											const maxValue = parseFloat(slider.max)
+											const stepSize = parseFloat(slider.step) || 1
 
-						let newSecond = minValue + percent * (maxValue - minValue);
-						const snappedValue = Math.round(newSecond / stepSize) * stepSize;
-						const boundedValue = Math.max(minValue, Math.min(snappedValue, maxValue));
+											const newSecond = minValue + percent * (maxValue - minValue)
+											const snappedValue = Math.round(newSecond / stepSize) * stepSize
+											const boundedValue = Math.max(minValue, Math.min(snappedValue, maxValue))
 
-						setHoverValue(boundedValue);
-					}}
-					style={{
-						background: `linear-gradient(to right, #f00 0%, #f00 ${(sliderValue() / 540) * 100}%, #ccc ${(sliderValue() / 540) * 100}%, #ccc 100%)`
-					}}
-					/>
-					<div class="tooltip" style={{ left: `${(hoverValue() / 540) * 100}%` }}>
-						{formatTime(hoverValue())}
+											setHoverValue(boundedValue)
+										}}
+										style={{
+											background: `linear-gradient(to right, #f00 0%, #f00 ${
+												(sliderValue() / 540) * 100
+											}%, #ccc ${(sliderValue() / 540) * 100}%, #ccc 100%)`,
+										}}
+									/>
+									<div class="tooltip" style={{ left: `${(hoverValue() / 540) * 100}%` }}>
+										{formatTime(hoverValue())}
+									</div>
+								</div>
+							)}
+						</div>
 					</div>
 
-				  </div>
-				)}</div>
-			  </div>
+					<div class="video-info">
+						<div class="video-controls">
+							{/* PLAY/PAUSE */}
+							<div class="control-group">
+								<button
+									class="controls-button play-pause-button"
+									onClick={() => {
+										if (isPaused()) {
+											sendSyncMessage("play")
+										} else {
+											sendSyncMessage("pause")
+										}
+									}}
+									disabled={clientId !== 0}
+								>
+									{isPaused() ? "⏵" : "⏸"}
+								</button>
+							</div>
 
-			  {/* Keep the rest of your controls here */}
-			  <div class="video-info">
-				<div class="video-controls">
-				  {/* PLAY/PAUSE */}
-				  <div class="control-group">
-					<button
-					  class="controls-button play-pause-button"
-					  onClick={() => {
-						if (isPaused()) {
-						  sendSyncMessage("play")
-						} else {
-						  sendSyncMessage("pause")
-						}
-					  }}
-					  disabled={clientId !== 0}
-					>
-					  {isPaused() ? "⏵" : "⏸"}
-					</button>
-				  </div>
+							<div class="control-group volume-control">
+								<label>
+									Volume
+									<input
+										id="volume"
+										type="range"
+										min="0"
+										max="100"
+										value={volume()}
+										onInput={changeVolume}
+									/>
+								</label>
+							</div>
 
+							{/* SYNC + Quick Buttons */}
+							<div class="control-group">
+								{clientId === 0 && (
+									<button class="controls-button" onClick={runLeader}>
+										Announce Sync
+									</button>
+								)}
+								<button class="controls-button" onClick={() => setShowChat(!showChat())}>
+									{showChat() ? "Hide Chatbox" : "Show Chatbox"}
+								</button>
 
-				  <div class="control-group volume-control">
-					<label>Volume</label>
-					<input
-					  id="volume"
-					  type="range"
-					  min="0"
-					  max="100"
-					  value={volume()}
-					  onInput={changeVolume}
-					/>
-				  </div>
-
-				  {/* SYNC + Quick Buttons */}
-				  <div class="control-group">
-					{clientId === 0 && (
-					  <button
-						class="controls-button"
-						onClick={runLeader}
-					  >
-						Announce Sync
-					  </button>
-					)}
-					<button class="controls-button" onClick={() => setShowChat(!showChat())}>
-		{showChat() ? "Hide Chatbox" : "Show Chatbox"}
-	</button>
-				  </div>
+								<button class="controls-button" onClick={goToMainMenu}>
+									Go to Main Menu
+								</button>
+							</div>
+						</div>
+					</div>
 				</div>
-			  </div>
-			</div>
 
-			{/* CHAT SECTION */}
-			<Show when={showChat()}>
-			<div class="chat-section">
-			  <div class="chat-header">Live Media over QUIC Chat</div>
-			  <div class="chat-messages">
-				{/* Messages will appear here */}
-			  </div>
-			  <div class="message-input-container">
-				{clientId === 0 && (
-				  <input
-					type="text"
-					class="message-input"
-					placeholder="Send a message..."
-					value={messageInput()}
-					onInput={(e) => setMessageInput(e.currentTarget.value)}
-				  />
-				)}
-				{clientId === 0 && (
-				  <button class="send-button" onClick={sendMessage}>
-					Send
-				  </button>
-				)}
-			  </div>
+				{/* CHAT SECTION */}
+				<Show when={showChat()}>
+					<div class="chat-section">
+						<div class="chat-header">Live Media over QUIC Chat</div>
+						<div class="chat-messages">{/* Messages will appear here */}</div>
+						<div class="message-input-container">
+							{clientId === 0 && (
+								<input
+									type="text"
+									class="message-input"
+									placeholder="Send a message..."
+									value={messageInput()}
+									onInput={(e) => setMessageInput(e.currentTarget.value)}
+								/>
+							)}
+							{clientId === 0 && (
+								<button class="send-button" onClick={sendMessage}>
+									Send
+								</button>
+							)}
+						</div>
+					</div>
+				</Show>
 			</div>
-			</Show>
-		  </div>
 		</>
-
-	  )
+	)
 }

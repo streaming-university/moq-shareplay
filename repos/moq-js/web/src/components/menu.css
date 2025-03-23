@@ -1,0 +1,127 @@
+
+.main-menu {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    background-color: #121212;
+    color: white;
+    padding: 40px;
+}
+
+.fancy-title {
+    font-size: 2.5rem; /* Bigger text */
+    font-weight: bold;
+    text-align: center;
+    background: linear-gradient(90deg, #ff8c00, #ff0080); /* Gradient color */
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent; /* Makes gradient apply to text */
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2); /* Subtle shadow */
+    letter-spacing: 1.5px; /* Slightly spaced out letters */
+    margin-bottom: 20px; /* Space below */
+
+}
+
+.fancy-title::after {
+    content: "";
+    display: block;
+    width: 80px;
+    height: 4px;
+    background: #ff0080;
+    margin: 8px auto 0;
+    border-radius: 4px;
+}
+
+/* Title */
+h1 {
+    font-size: 2.5rem;
+    font-weight: bold;
+    margin-bottom: 2rem;
+    text-align: center;
+}
+
+/* Selection Container */
+.selection-container {
+    display: flex;
+    gap: 80px;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    max-width: 1000px; /* Wider layout */
+    margin-bottom: 2rem;
+}
+
+/* Common Styles for Sections */
+.room-selection,
+.role-selection {
+    background: #1e1e1e;
+    padding: 25px;
+    border-radius: 12px;
+    width: 100%;
+    box-shadow: 0px 4px 15px rgba(0, 0, 0, 0.5);
+}
+
+/* Titles */
+.room-selection h2,
+.role-selection h2 {
+    font-size: 1.8rem;
+    margin-bottom: 1rem;
+    text-align: center;
+}
+
+/* Grid for Room and Role Buttons */
+.role-grid,
+.room-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); /* Dynamic fitting */
+    gap: 15px;
+    padding: 10px;
+}
+
+/* Room & Role Buttons */
+.room-button,
+.role-button {
+    width: 100%;
+    padding: 15px 25px;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 1.2rem;
+    color: white;
+    background-color: #333;
+    transition: all 0.3s ease-in-out;
+    text-align: center;
+}
+
+.room-button:hover,
+.role-button:hover {
+    background-color: #007bff;
+}
+
+.room-button.selected,
+.role-button.selected {
+    background-color: #0056b3;
+    transform: scale(1.05);
+}
+
+/* Join Button */
+.join-button {
+    margin-top: 20px;
+    padding: 18px 40px;
+    border-radius: 10px;
+    background-color: #8a2be2;
+    font-size: 1.3rem;
+    cursor: pointer;
+    transition: background 0.3s ease-in-out;
+}
+
+.join-button:hover {
+    background-color: #6a1bbf;
+}
+
+.join-button:disabled {
+    background-color: #666;
+    cursor: not-allowed;
+    opacity: 0.5;
+}
