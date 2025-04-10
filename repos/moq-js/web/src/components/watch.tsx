@@ -37,6 +37,7 @@ export default function Watch() {
 	const [selectedRoom, setSelectedRoom] = createSignal<number | null>(null)
 	const [selectedRole, setSelectedRole] = createSignal<string | null>(null)
 
+	const socket = new WebSocket("ws://localhost:8080");
 	// Handle Join function to construct the URL dynamically
 	const handleJoin = () => {
 		if (!selectedRoom() || !selectedRole()) {

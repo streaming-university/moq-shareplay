@@ -7,9 +7,18 @@
 		"web"
 	],
 	"scripts": {
-		"dev": "npm run dev --workspace web",
+		"dev": "concurrently \"node web/ws-server.js\" \"npm run dev --workspace web\"",
 		"build": "npm run build --workspaces",
 		"lint": "npm run lint --workspaces",
 		"fmt": "npm run fmt --workspaces"
+	},
+	"dependencies": {
+		"@astrojs/mdx": "^4.2.3",
+		"@mdx-js/mdx": "^3.1.0",
+		"ws": "^8.18.1"
+	},
+	"devDependencies": {
+		"@types/ws": "^8.18.1",
+		"concurrently": "^9.1.2"
 	}
 }

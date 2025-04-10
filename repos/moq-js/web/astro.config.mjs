@@ -21,7 +21,7 @@ export default defineConfig({
 		mode: "standalone",
 	}),
 	// Default to static rendering, but allow server rendering per-page
-	output: "hybrid",
+	output: 'server',
 	vite: {
 		base: "./",
 		server: {
