@@ -23,7 +23,6 @@ export default defineConfig({
 	// Default to static rendering, but allow server rendering per-page
 	output: 'server',
 	vite: {
-		base: "./",
 		server: {
 			// HTTPS is required for SharedArrayBuffer
 			https: true,

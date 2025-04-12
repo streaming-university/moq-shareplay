@@ -36,8 +36,7 @@ export default function Watch() {
 	// State for selected room and role
 	const [selectedRoom, setSelectedRoom] = createSignal<number | null>(null)
 	const [selectedRole, setSelectedRole] = createSignal<string | null>(null)
-
-	const socket = new WebSocket("ws://localhost:8080");
+	let socket: WebSocket | undefined
 	// Handle Join function to construct the URL dynamically
 	const handleJoin = () => {
 		if (!selectedRoom() || !selectedRole()) {
@@ -48,6 +47,7 @@ export default function Watch() {
 		newUrl.searchParams.set("room", `room${selectedRoom()}`)
 		newUrl.searchParams.set("role", selectedRole()!)
 		window.location.href = newUrl.toString()
+		socket = new WebSocket("ws://localhost:8080");
 	}
 
 	if (!params.room && !params.role) {
@@ -116,6 +116,7 @@ export default function Watch() {
 			console.error("Invalid follower ID (must be follower1, follower2, ... and follower0 is not allowed)")
 		}
 	}
+	socket.send(`client with id ${clientId}`)
 
 	// ----------- variables for sync functionality ------------
 	const syncTrackName = "sync-track"
