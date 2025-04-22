@@ -1,4 +1,10 @@
-# Setup (Docker is not integrated yet)
+# Prerequisites
+- Rust
+- Go (for certificate creation)
+- Ffmpeg
+- Node.js (npm, TypeScript, JavaScript)
+
+# Installation & Setup
 ## moq-js (web)
 ```
 cd repos/moq-js; npm install
@@ -27,3 +33,4 @@ cd repos/moq-rs; ./dev/pub <room_name>
 As a leader : ```https://localhost:4321/?room=room<room_name>&role=leader```
 
 As a follower : ```https://localhost:4321/?room=room<room_name>&role=follower<id>```
+

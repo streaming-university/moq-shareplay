@@ -7,6 +7,7 @@ use std::cmp::max;
 use std::collections::HashMap;
 use std::io::Cursor;
 use std::time;
+
 use std::time::Instant;
 use std::{fs::File, io::Write, path::Path};
 
@@ -138,9 +139,11 @@ impl Media {
 
 		// Generate a filename based on the atom type and timestamp.
 		let filename = format!("{}_{}.bin", self.count, header.name.to_string());
-		self.count += 1;
+
+    self.count += 1;
 		let now = Utc::now();
 		println!("{}", now.format("%H.%M.%S"));
+
 		println!("Total File Count is: {}", self.count);
 		// Save the atom to disk.
 		self.save_atom_to_disk(&filename, &atom)?;

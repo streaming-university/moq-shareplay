@@ -470,7 +470,7 @@ impl StreamObjectReader {
 					let chunk = state.chunks[self.index].clone();
 					self.index += 1;
 					match std::str::from_utf8(&chunk) {
-						Ok(content) => log::info!("Content: {}", content),
+						Ok(content) => log::info!("Received content: {}", content),
 						Err(e) => log::error!("Error decoding bytes: {}", e),
 					}
 					return Ok(Some(chunk));
