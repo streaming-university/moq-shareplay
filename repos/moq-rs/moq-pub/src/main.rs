@@ -14,8 +14,9 @@ use moq_pub::{Media, SubToSync};
 use moq_transport::{serve, serve::Tracks, session::Publisher};
 use moq_transport::session::Subscriber;
 use moq_transport::serve::{TrackReaderMode, TracksReader};
-
-
+use futures_util::StreamExt;
+use futures_util::sink::SinkExt; // Required for `.send()` on split WebSocket
+use tokio_tungstenite::{connect_async, tungstenite::Message};
 use tokio::sync::{watch, Mutex};
 use std::sync::Arc;
 // use moq_transport::serve::Tracks;
@@ -51,66 +52,134 @@ pub struct Cli {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-	env_logger::init();
+    env_logger::init();
 
-	// Disable tracing so we don't get a bunch of Quinn spam.
-	let tracer = tracing_subscriber::FmtSubscriber::builder()
-		.with_max_level(tracing::Level::WARN)
-		.finish();
-	tracing::subscriber::set_global_default(tracer).unwrap();
+    // Disable tracing to suppress Quinn debug output
+    let tracer = tracing_subscriber::FmtSubscriber::builder()
+        .with_max_level(tracing::Level::WARN)
+        .finish();
+    tracing::subscriber::set_global_default(tracer).unwrap();
 
-	let cli = Cli::parse();
+    let cli = Cli::parse();
 
-	let (writer, _, reader) = serve::Tracks::new(cli.name.clone()).produce();
-	let media = Media::new(writer)?;
+    let (writer, _, reader) = serve::Tracks::new(cli.name.clone()).produce();
+    let media = Media::new(writer)?;
 
-	let tls = cli.tls.load()?;
+    let tls = cli.tls.load()?;
+    let quic = quic::Endpoint::new(moq_native::quic::Config {
+        bind: cli.bind,
+        tls: tls.clone(),
+    })?;
 
-	let quic = quic::Endpoint::new(moq_native::quic::Config {
-		bind: cli.bind,
-		tls: tls.clone(),
-	})?;
+    log::info!("Connecting to relay: url={}", cli.url);
+    let session = quic.client.connect(&cli.url).await?;
 
-	log::info!("connecting to relay: url={}", cli.url);
-	let session = quic.client.connect(&cli.url).await?;
+    let (session, mut publisher, subscriber) = moq_transport::session::Session::connect(session)
+        .await
+        .context("failed to establish forward session")?;
 
-	// let (session, mut publisher) = Publisher::connect(session)
-	// 	.await
-	// 	.context("failed to create MoQ Transport publisher")?;
+    let tracks = Tracks::new(format!("sync-namespace-{}", cli.name));
+    let mut syncer = SubToSync::new(&subscriber, tracks).await?;
 
-	let (session, mut publisher, subscriber) = moq_transport::session::Session::connect(session)
-		.await
-		.context("failed to establish forward session")?;
+    let (sync_value_tx, sync_value_rx) = watch::channel(String::new());
+    let sync_value_rx_locked = Arc::new(Mutex::new(sync_value_rx.clone()));
 
-	let tracks = Tracks::new(String::from(format!("sync-namespace-{}", cli.name)));
-	// let (tracks_writer, _tracks_request, mut tracks_reader) = tracks.produce();
-	// let track = tracks_reader.subscribe("sync-track").context("no sync track")?;
+    // 👇 Store a handle to the currently running syncer task (can be replaced)
+    let current_syncer_task = Arc::new(Mutex::new(None::<tokio::task::JoinHandle<anyhow::Result<()>>>));
+    let subscriber = Arc::new(subscriber);
 
-	let mut syncer = SubToSync::new(subscriber, tracks).await?;
-	let (sync_value_tx, sync_value_rx) = watch::channel(String::new());
+    {
+        let sync_value_tx = sync_value_tx.clone();
+        let current_syncer_task = Arc::clone(&current_syncer_task);
+        let subscriber = Arc::clone(&subscriber);
+        let cli_name = cli.name.clone();
 
-	let sync_value_rx_locked = Arc::new(Mutex::new(sync_value_rx.clone()));
+        // 🔌 WebSocket client: connects to ws://localhost:8080 and listens
+        tokio::spawn(async move {
+            let url = Url::parse("ws://localhost:8080").expect("Invalid WebSocket URL");
+            let (ws_stream, _) = connect_async(url).await.expect("WebSocket connection failed");
+            println!("🔗 WebSocket connected.");
 
-	let sync_value_rx_clone = Arc::clone(&sync_value_rx_locked);
-	tokio::spawn(async move {
-		let mut rx = sync_value_rx_clone.lock().await;
-		while rx.changed().await.is_ok() {
-			let value = rx.borrow();
-			println!("Received message in the moq-pub: {}", *value);
-		}
-	});
+            let (mut write, mut read) = ws_stream.split();
 
-	tokio::select! {
-		res = session.run() => res.context("session error")?,
-		res = run_media_from_group_with_a_channel(media, Some(0), Some(0), sync_value_rx.clone()) => res.context("media error")?,
-		res = publisher.announce(reader) => res.context("publisher error")?,
-		//res = syncer.run() => res.context("syncer error")?,
-        res = syncer.run_with_a_channel(sync_value_tx) => res.context("syncer error")?,
-		// res = subscribe_sync_track(tracks_reader) => res.context("subscriber error")?,
-	}
+            // ✉️ Send pub1
+            if let Err(e) = write.send(Message::Text("pub1".to_string())).await {
+                eprintln!("❌ Failed to send 'pub1': {}", e);
+            } else {
+                println!("✅ Sent 'pub1' to WebSocket server.");
+            }
 
-	Ok(())
+            while let Some(msg) = read.next().await {
+                match msg {
+                    Ok(Message::Text(text)) => {
+                        if text.trim() == "x" {
+                            println!("🔁 Replacing syncer due to WebSocket message 'x'...");
+
+                            let new_tracks = Tracks::new(format!("sync-namespace-{}", text));
+                            match SubToSync::new(&*subscriber, new_tracks).await {
+								Ok(mut new_syncer) => {
+                                    let tx_clone = sync_value_tx.clone();
+
+                                    // Cancel the current syncer task if running
+                                    if let Some(handle) = current_syncer_task.lock().await.take() {
+                                        handle.abort();
+                                    }
+
+                                    // Spawn new syncer task
+                                    let handle = tokio::spawn(async move {
+                                        new_syncer.run_with_a_channel(tx_clone).await
+                                    });
+
+                                    *current_syncer_task.lock().await = Some(handle);
+									panic!("Syncer replaced");
+                                }
+                                Err(e) => {
+                                    eprintln!("❌ Failed to create new syncer: {:?}", e);
+                                }
+                            }
+                        } else {
+                            println!("📩 WebSocket message: {}", text);
+                        }
+                    }
+                    Ok(_) => {}
+                    Err(e) => {
+                        eprintln!("WebSocket error: {}", e);
+                        break;
+                    }
+                }
+            }
+        });
+    }
+
+    // 🟢 Log sync messages from MoQ track
+    let sync_value_rx_clone = Arc::clone(&sync_value_rx_locked);
+    tokio::spawn(async move {
+        let mut rx = sync_value_rx_clone.lock().await;
+        while rx.changed().await.is_ok() {
+            let value = rx.borrow();
+            println!("🟢 Received message in moq-pub: {}", *value);
+        }
+    });
+
+    // Start the initial syncer task
+    let initial_syncer_task = tokio::spawn({
+        let tx = sync_value_tx.clone();
+        async move {
+            syncer.run_with_a_channel(tx).await
+        }
+    });
+    *current_syncer_task.lock().await = Some(initial_syncer_task);
+
+    // Run MoQ session and media
+    tokio::select! {
+        res = session.run() => res.context("session error")?,
+        res = run_media_from_group_with_a_channel(media, Some(0), Some(0), sync_value_rx.clone()) => res.context("media error")?,
+        res = publisher.announce(reader) => res.context("publisher error")?,
+    }
+
+    Ok(())
 }
+
 
 
 

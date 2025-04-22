@@ -18,10 +18,10 @@ pub struct SubToSync {
 }
 
 impl SubToSync {
-    pub async fn new(subscriber: Subscriber, tracks: Tracks) -> anyhow::Result<Self> {
+    pub async fn new(subscriber: &Subscriber, tracks: Tracks) -> anyhow::Result<Self> {
         let (tracks_writer, _tracks_request, tracks_reader) = tracks.produce();
         let broadcast = tracks_reader;
-
+		let subscriber = subscriber.clone();
         Ok(Self {
             subscriber,
             broadcast,

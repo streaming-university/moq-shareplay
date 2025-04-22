@@ -47,7 +47,7 @@ export default function Watch() {
 		newUrl.searchParams.set("room", `room${selectedRoom()}`)
 		newUrl.searchParams.set("role", selectedRole()!)
 		window.location.href = newUrl.toString()
-		socket = new WebSocket("ws://localhost:8080");
+		// socket = new WebSocket("ws://localhost:8080");
 	}
 
 	if (!params.room && !params.role) {
@@ -116,7 +116,45 @@ export default function Watch() {
 			console.error("Invalid follower ID (must be follower1, follower2, ... and follower0 is not allowed)")
 		}
 	}
-	socket.send(`client with id ${clientId}`)
+
+	createEffect(() => {
+		if (!socket && params.room && params.role) {
+		  socket = new WebSocket("ws://localhost:8080");
+
+		  socket.onopen = () => {
+			console.log("[WS] connected");
+
+			const interval = setInterval(() => {
+				if (socket?.readyState === WebSocket.OPEN) {
+					socket.send(
+						JSON.stringify({
+						  room: params.room,
+						  role: params.role,
+						  id: clientId,
+						  namespace: syncNamespace,
+						})
+					);
+				}
+			  }, 3_000);
+
+			  onCleanup(() => clearInterval(interval));
+		  };
+
+		  socket.onmessage = (e) => {
+			console.log("[WS] message:", e.data);
+		  };
+
+		  socket.onerror = (e) => {
+			console.error("[WS] error:", e);
+		  };
+
+		  socket.onclose = () => {
+			console.warn("[WS] closed");
+		  };
+		}
+	});
+
+
 
 	// ----------- variables for sync functionality ------------
 	const syncTrackName = "sync-track"
