@@ -94,6 +94,7 @@ async fn main() -> anyhow::Result<()> {
         let subscriber = Arc::clone(&subscriber);
         let cli_name = cli.name.clone();
 
+
         // 🔌 WebSocket client: connects to ws://localhost:8080 and listens
         tokio::spawn(async move {
             let url = Url::parse("ws://localhost:8080").expect("Invalid WebSocket URL");
@@ -102,48 +103,53 @@ async fn main() -> anyhow::Result<()> {
 
             let (mut write, mut read) = ws_stream.split();
 
-            // ✉️ Send pub1
-            if let Err(e) = write.send(Message::Text("pub1".to_string())).await {
-                eprintln!("❌ Failed to send 'pub1': {}", e);
-            } else {
-                println!("✅ Sent 'pub1' to WebSocket server.");
-            }
+            let pub_name = if cli_name.starts_with("room") {
+				format!("pub{}", &cli_name["room".len()..])
+			} else {
+				"pub1".to_string() // fallback default
+			};
 
-            while let Some(msg) = read.next().await {
-                match msg {
-                    Ok(Message::Text(text)) => {
-                        if text.trim() == "x" {
-                            println!("🔁 Replacing syncer due to WebSocket message 'x'...");
+			if let Err(e) = write.send(Message::Text(pub_name.clone())).await {
+				eprintln!("❌ Failed to send '{}': {}", pub_name, e);
+			} else {
+				println!("✅ Sent '{}' to WebSocket server.", pub_name);
+			}
 
-                            let new_tracks = Tracks::new(format!("sync-namespace-{}", text));
-                            match SubToSync::new(&*subscriber, new_tracks).await {
-								Ok(mut new_syncer) => {
-                                    let tx_clone = sync_value_tx.clone();
+			while let Some(msg) = read.next().await {
+				match msg {
+					Ok(Message::Text(text)) => {
+						if let Ok(json) = serde_json::from_str::<serde_json::Value>(&text) {
+							if json["type"] == "namespace-update" {
+								let new_namespace = json["newNamespace"].as_str().unwrap_or_default();
+								log::info!("🔁 Received namespace-update: {}", new_namespace);
 
-                                    // Cancel the current syncer task if running
-                                    if let Some(handle) = current_syncer_task.lock().await.take() {
-                                        handle.abort();
-                                    }
+								let new_tracks = Tracks::new(new_namespace.to_string());
+								match SubToSync::new(&*subscriber, new_tracks).await {
+									Ok(mut new_syncer) => {
+										let tx_clone = sync_value_tx.clone();
 
-                                    // Spawn new syncer task
-                                    let handle = tokio::spawn(async move {
-                                        new_syncer.run_with_a_channel(tx_clone).await
-                                    });
+										if let Some(handle) = current_syncer_task.lock().await.take() {
+											handle.abort();
+										}
 
-                                    *current_syncer_task.lock().await = Some(handle);
-									panic!("Syncer replaced");
-                                }
-                                Err(e) => {
-                                    eprintln!("❌ Failed to create new syncer: {:?}", e);
-                                }
-                            }
-                        } else {
-                            println!("📩 WebSocket message: {}", text);
-                        }
+										let handle = tokio::spawn(async move {
+											new_syncer.run_with_a_channel(tx_clone).await
+										});
+
+										*current_syncer_task.lock().await = Some(handle);
+									}
+									Err(e) => {
+										log::error!("❌ Failed to create new syncer: {:?}", e);
+									}
+								}
+							}
+						} else {
+							log::info!("📩 WebSocket message: {}", text);
+						}
                     }
                     Ok(_) => {}
                     Err(e) => {
-                        eprintln!("WebSocket error: {}", e);
+                        log::error!("WebSocket error: {}", e);
                         break;
                     }
                 }
@@ -323,7 +329,7 @@ async fn run_media_from_group_with_a_channel(mut media: Media, start_group: Opti
 
 	 while ( total_frames < frame_atoms.len()) {
 		let mut batch = Vec::new();
-		log::info!("Frame index is: {}, frame atoms length is: {}", frame_index, frame_atoms.len());
+		//log::info!("Frame index is: {}, frame atoms length is: {}", frame_index, frame_atoms.len());
 		if frame_index+total_frames+2 >= frame_atoms.len() {
 				log::info!("End of video reached. Restarting playback from beginning...");
 
@@ -333,7 +339,7 @@ async fn run_media_from_group_with_a_channel(mut media: Media, start_group: Opti
 			}
 
 
-		log::info!("Total frames is: {}, frame atoms length is: {}", total_frames, frame_atoms.len());
+		//log::info!("Total frames is: {}, frame atoms length is: {}", total_frames, frame_atoms.len());
 
 		if !play {
 			log::info!("Playback paused. Waiting for resume signal...");

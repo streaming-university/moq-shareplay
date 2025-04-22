@@ -2,8 +2,11 @@ import { WebSocketServer } from "ws";
 
 const wss = new WebSocketServer({ port: 8080 });
 
-// Map<ws, { lastSeen, meta }>
-const room1 = new Map();
+const clients = new Map(); // Map<ws, { lastSeen, meta }>
+const rooms = new Map();   // Map<roomName, Set<ws>>
+const pendingNamespaceUpdate = new Map(); // Map<roomName, boolean>
+
+// Publisher references
 let pub1 = null;
 let pub2 = null;
 let pub3 = null;
@@ -11,76 +14,146 @@ let pub4 = null;
 let pub5 = null;
 
 wss.on("connection", (ws) => {
-  console.log("Client connected");
+	console.log("Client connected");
 
-  ws.on("message", (message) => {
-	console.log("Received message:", message.toString());
-	switch (message) {
-	  case "pub1":
-		pub1 = ws;
-		console.log("pub1 connected");
-		return;
-	  case "pub2":
-		pub2 = ws;
-		console.log("pub2 connected");
-		return;
-	  case "pub3":
-		pub3 = ws;
-		console.log("pub3 connected");
-		return;
-	  case "pub4":
-		pub4 = ws;
-		console.log("pub4 connected");
-		return;
-	  case "pub5":
-		pub5 = ws;
-		console.log("pub5 connected");
-		return;
+	ws.on("message", (message) => {
+	  const raw = message.toString();
+	  console.log("Received message:", raw);
+
+	  // Handle simple pub registration
+	  switch (raw) {
+		case "pub1": pub1 = ws; console.log("pub1 connected"); return;
+		case "pub2": pub2 = ws; console.log("pub2 connected"); return;
+		case "pub3": pub3 = ws; console.log("pub3 connected"); return;
+		case "pub4": pub4 = ws; console.log("pub4 connected"); return;
+		case "pub5": pub5 = ws; console.log("pub5 connected"); return;
+	  }
+
+	  try {
+		const data = JSON.parse(raw);
+
+		// Handle leader disconnect
+		if (data.type === "disconnect" && data.role === "leader" && data.room) {
+		  console.log(`[LEADER DISCONNECT] Room: ${data.room}, ID: ${data.id}`);
+		  pendingNamespaceUpdate.set(data.room, true);
+		  console.log("Pending rooms waiting for leader:", Array.from(pendingNamespaceUpdate.entries()));
+		  return;
+		}
+
+		console.log("Pending rooms waiting for leader:", Array.from(pendingNamespaceUpdate.entries()));
+
+		const isValid = typeof data.room === "string" &&
+						typeof data.role === "string" &&
+						typeof data.namespace === "string";
+
+		console.log("Is valid: ", isValid);
+		if (isValid) {
+		  clients.set(ws, { lastSeen: Date.now(), meta: data });
+
+		  if (!rooms.has(data.room)) {
+			rooms.set(data.room, new Set());
+		  }
+		  rooms.get(data.room).add(ws);
+
+		  // If a leader joined and we’re waiting to send a new namespace
+		  if (data.role === "leader" && pendingNamespaceUpdate.get(data.room)) {
+			console.log("Yeni bir leader detect edildi !!!, namespace degistiriliyor");
+			const newNamespace = `sync-namespace-room1-${Math.floor(100000 + Math.random() * 900000)}`;
+			console.log("Yeni namespace, ", newNamespace);
+			pendingNamespaceUpdate.delete(data.room);
+
+
+			const roomClients = rooms.get(data.room);
+console.log(`[WS] Connected clients in room '${data.room}':`);
+
+if (roomClients) {
+	for (const client of roomClients) {
+		const clientInfo = clients.get(client);
+		console.log("→", {
+			readyState: client.readyState,
+			meta: clientInfo?.meta,
+		});
 	}
+} else {
+	console.log("[WS] No clients found for this room.");
+}
+const pubMap = {
+	room1: pub1,
+	room2: pub2,
+	room3: pub3,
+	room4: pub4,
+	room5: pub5,
+  };
 
-    try {
-	  const data = JSON.parse(message.toString());
-      if (
-        typeof data.room === "string" &&
-        typeof data.role === "string" &&
-        typeof data.id === "string" &&
-        typeof data.namespace === "string"
-      ) {
-		
-        room1.set(ws, {
-          lastSeen: Date.now(),
-          meta: {
-            room: data.room,
-            role: data.role,
-            id: data.id,
-            namespace: data.namespace,
-          },
-        });
-      } else {
-        // Not a valid heartbeat message – just update timestamp
-        const client = room1.get(ws);
-        if (client) {
-          client.lastSeen = Date.now();
-        }
-      }
-    } catch (e) {
-      console.warn("Invalid message received");
-    }
-  });
+  const pub = pubMap[data.room];
 
-  ws.on("close", () => {
-  });
-});
+  if (pub && pub.readyState === 1) {
+	const pubPayload = {
+	  type: "namespace-update",
+	  room: data.room,
+	  newNamespace,
+	};
 
-
-setInterval(() => {
-  const now = Date.now();
-  for (const [ws, client] of room1.entries()) {
-    if (now - client.lastSeen > 5000) {
-      console.log("Removing inactive client:", client.meta);
-      room1.delete(ws);
-    }
+	try {
+	  const payload = JSON.stringify(pubPayload);
+	  console.log(`[WS] Also sending namespace-update to ${data.room} publisher:`, payload);
+	  pub.send(payload);
+	} catch (err) {
+	  console.error(`[WS] Failed to send namespace-update to ${data.room} publisher:`, err);
+	}
   }
-}, 1000);
+			if (roomClients) {
+			  for (const client of roomClients) {
+				if (client.readyState === 1) {
+					const namespacePayload = {
+						type: "namespace-update",
+						room: data.room,
+						newNamespace: newNamespace,
+					};
+					console.log("Following will be converted to json", namespacePayload)
+					try {
+						const payload = JSON.stringify(namespacePayload);
+						console.log("[WS] Sending to client:", payload);
 
-console.log("WebSocket server running on ws://localhost:8080");
+						client.send(payload);
+					} catch (err) {
+						console.error("[WS] Failed to stringify or send message:", err);
+						console.log("Payload that failed:", namespacePayload);
+					}
+				}
+			  }
+			  console.log(`[NAMESPACE UPDATED] Room: ${data.room}, New: ${newNamespace}`);
+			}
+		  }
+		} else {
+		  const existing = clients.get(ws);
+		  if (existing) existing.lastSeen = Date.now(); // still update heartbeat
+		}
+	  } catch (e) {
+		console.warn("Invalid JSON message received");
+	  }
+	});
+
+	ws.on("close", () => {
+	  const meta = clients.get(ws)?.meta;
+	  if (meta) {
+		const roomSet = rooms.get(meta.room);
+		if (roomSet) {
+		  roomSet.delete(ws);
+		}
+	  }
+
+	  clients.delete(ws);
+
+	  // Clear publisher references
+	  if (ws === pub1) pub1 = null;
+	  if (ws === pub2) pub2 = null;
+	  if (ws === pub3) pub3 = null;
+	  if (ws === pub4) pub4 = null;
+	  if (ws === pub5) pub5 = null;
+
+	  console.log("Client disconnected");
+	});
+  });
+
+  console.log("✅ WebSocket server running at ws://localhost:8080");

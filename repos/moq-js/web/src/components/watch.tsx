@@ -117,53 +117,92 @@ export default function Watch() {
 		}
 	}
 
-	createEffect(() => {
-		if (!socket && params.room && params.role) {
-		  socket = new WebSocket("ws://localhost:8080");
-
-		  socket.onopen = () => {
-			console.log("[WS] connected");
-
-			const interval = setInterval(() => {
-				if (socket?.readyState === WebSocket.OPEN) {
-					socket.send(
-						JSON.stringify({
-						  room: params.room,
-						  role: params.role,
-						  id: clientId,
-						  namespace: syncNamespace,
-						})
-					);
-				}
-			  }, 3_000);
-
-			  onCleanup(() => clearInterval(interval));
-		  };
-
-		  socket.onmessage = (e) => {
-			console.log("[WS] message:", e.data);
-		  };
-
-		  socket.onerror = (e) => {
-			console.error("[WS] error:", e);
-		  };
-
-		  socket.onclose = () => {
-			console.warn("[WS] closed");
-		  };
-		}
-	});
-
-
-
 	// ----------- variables for sync functionality ------------
 	const syncTrackName = "sync-track"
-	const syncNamespace = `sync-namespace-${roomName}`
+	let syncNamespace = `sync-namespace-${roomName}`
 	let trackWriter!: TrackWriter
 	let subscriber!: SubscribeSend
 	let objectNumber = 0 //clientId === 0 ? 0 : 100
 	let groupNumber = 0 //clientId === 0 ? 0 : 1
 	// ---------------------------------------------------------
+
+	createEffect(() => {
+		if (!socket && params.room && params.role) {
+			socket = new WebSocket("ws://localhost:8080");
+
+			socket.onopen = () => {
+				console.log(`[WS] connected ${params.room}, ${params.role}`);
+
+				// Send connection info once on connect
+				if (socket?.readyState === WebSocket.OPEN) {
+					socket.send(
+						JSON.stringify({
+							type: "connect",
+							room: params.room,
+							role: params.role,
+							id: clientId,
+							namespace: syncNamespace,
+						})
+					);
+				}
+
+				// Handle disconnect (on refresh/close/tab close)
+				const handleUnload = (event: BeforeUnloadEvent) => {
+					if (socket?.readyState === WebSocket.OPEN) {
+						socket.send(
+							JSON.stringify({
+								type: "disconnect",
+								reason: "unload",
+								room: params.room,
+								role: params.role,
+								id: clientId,
+							})
+						);
+					}
+				};
+
+				window.addEventListener("beforeunload", handleUnload);
+
+				onCleanup(() => {
+					window.removeEventListener("beforeunload", handleUnload);
+				});
+			};
+
+			socket.onmessage = (e) => {
+				console.log("[WS] message:", e.data);
+
+				// Handle namespace update message
+				try {
+					const msg = JSON.parse(e.data);
+					if (msg.type === "namespace-update") {
+						console.log(`[WS] Updating namespace to ${msg.newNamespace}`);
+						syncNamespace = msg.newNamespace;
+						if (clientId !== 0) {
+							runFollower()
+						}
+						else {
+							runLeader()
+						}
+					}
+				} catch (err) {
+					console.warn("[WS] Failed to parse message:", e.data);
+					console.error("[WS] JSON parse error:", err); // Add this!
+				}
+			};
+
+			socket.onerror = (e) => {
+				console.error("[WS] error:", e);
+			};
+
+			socket.onclose = () => {
+				console.warn("[WS] closed");
+			};
+		}
+	});
+
+
+
+
 
 	createEffect(async () => {
 		const url = `https://${server}`
@@ -220,9 +259,6 @@ export default function Watch() {
 	})
 
 	const createTrackWriter = async () => {
-		if (isTrackWriterCreated()) {
-			return
-		}
 
 		try {
 			const connection = usePlayer()?.getConnection()
@@ -259,10 +295,6 @@ export default function Watch() {
 			// console.error("Only the leader can announce a sync track")
 			return
 		}
-		if (isAnnounced()) {
-			return
-		}
-
 		try {
 			// Get the Connection object
 			const connection = usePlayer()?.getConnection()
@@ -322,9 +354,6 @@ export default function Watch() {
 	}
 
 	const subscribeToSyncTrack = async () => {
-		if (isSubscribed()) {
-			return
-		}
 
 		// Get the Connection object
 		const connection = usePlayer()?.getConnection()
