@@ -36,6 +36,8 @@ export default function Watch() {
 	// State for selected room and role
 	const [selectedRoom, setSelectedRoom] = createSignal<number | null>(null)
 	const [selectedRole, setSelectedRole] = createSignal<string | null>(null)
+	const [roomStatuses, setRoomStatuses] = createSignal<Record<string, { leaderPresent: boolean, clientCount: number }>>({});
+
 	let socket: WebSocket | undefined
 	// Handle Join function to construct the URL dynamically
 	const handleJoin = () => {
@@ -51,6 +53,47 @@ export default function Watch() {
 	}
 
 	if (!params.room && !params.role) {
+		createEffect(() => {
+			if (!socket) {
+				socket = new WebSocket("ws://localhost:8080");
+
+				socket.onopen = () => {
+					console.log("[WS] Menu socket connected");
+
+					socket?.send(JSON.stringify({
+						type: "status-request"
+					}));
+
+					// Then send a status request every 500ms
+					const interval = setInterval(() => {
+						socket?.send(JSON.stringify({ type: "status-request" }));
+					}, 500);
+
+					onCleanup(() => {
+						clearInterval(interval);
+					});
+				};
+
+				socket.onmessage = (e) => {
+					try {
+						const msg = JSON.parse(e.data);
+						if (msg.type === "status-response") {
+							setRoomStatuses(msg.rooms);
+						}
+					} catch (err) {
+						console.error("Failed to parse menu socket message:", e);
+					}
+				};
+
+				socket.onerror = (e) => {
+					console.error("[WS] Menu socket error:", e);
+				};
+
+				socket.onclose = () => {
+					console.warn("[WS] Menu socket closed");
+				};
+			}
+		});
 		return (
 			<div class="main-menu">
 				<div class="title-container">
@@ -62,14 +105,27 @@ export default function Watch() {
 						<h2>ROOM</h2>
 						<div class="room-grid">
 							<For each={[1, 2, 3, 4, 5]}>
-								{(roomNum) => (
-									<button
-										class={`room-button ${selectedRoom() === roomNum ? "selected" : ""}`}
-										onClick={() => setSelectedRoom(roomNum)}
-									>
-										Room {roomNum}
-									</button>
-								)}
+								{(roomNum) => {
+									const roomName = `room${roomNum}`;
+									return (
+										<div style="display: flex; flex-direction: column; align-items: center;">
+											<button
+												class={`room-button ${selectedRoom() === roomNum ? "selected" : ""}`}
+												onClick={() => setSelectedRoom(roomNum)}
+											>
+												Room {roomNum}
+											</button>
+											<Show when={roomStatuses()[roomName]}>
+												{(roomInfo) => (
+													<div style="margin-top: 6px; text-align: center; font-size: 0.9rem; color: #ccc;">
+														{roomInfo().clientCount} user{roomInfo().clientCount !== 1 ? "s" : ""}<br />
+														Leader: {roomInfo().leaderPresent ? "✓" : "✖️"}
+													</div>
+												)}
+											</Show>
+										</div>
+									);
+								}}
 							</For>
 						</div>
 					</div>
@@ -79,22 +135,44 @@ export default function Watch() {
 						<h2>ROLE</h2>
 						<div class="role-grid">
 							<For each={["leader", "follower"]}>
-								{(role) => (
-									<button
-										class={`role-button ${selectedRole() === role ? "selected" : ""}`}
-										onClick={() => setSelectedRole(role)}
-									>
-										{role.charAt(0).toUpperCase() + role.slice(1)}
-									</button>
-								)}
+								{(role) => {
+									const isLeaderDisabled = role === "leader" && !!selectedRoom() && !!roomStatuses()[`room${selectedRoom()}`]?.leaderPresent;
+									return (
+										<button
+											class={`role-button ${selectedRole() === role ? "selected" : ""} ${isLeaderDisabled ? "disabled" : ""}`}
+											onClick={() => {
+												if (!isLeaderDisabled) setSelectedRole(role);
+											}}
+											disabled={isLeaderDisabled}
+										>
+											{role.charAt(0).toUpperCase() + role.slice(1)}
+										</button>
+									);
+								}}
 							</For>
 						</div>
+						<Show when={
+							selectedRoom() &&
+							selectedRole() === "leader" &&
+							roomStatuses()[`room${selectedRoom()}`]?.leaderPresent
+						}>
+							<div style="color: #ff4d4f; margin-top: 10px; text-align: center; font-size: 0.9rem;">
+								⚠️ Only 1 Leader is allowed per room.
+							</div>
+						</Show>
 					</div>
-
 				</div>
 
 				{/* Join Button */}
-				<button class="join-button" onClick={handleJoin} disabled={!selectedRoom() || !selectedRole()}>
+				<button
+					class="join-button"
+					onClick={handleJoin}
+					disabled={
+						!selectedRoom() ||
+						!selectedRole() ||
+						(selectedRole() === "leader" && roomStatuses()[`room${selectedRoom()}`]?.leaderPresent)
+					}
+				>
 					Join
 				</button>
 			</div>
@@ -162,6 +240,10 @@ export default function Watch() {
 				};
 
 				window.addEventListener("beforeunload", handleUnload);
+
+				setInterval(() => {
+					socket?.send(JSON.stringify({ type: "status-request" }));
+				}, 1000);
 
 				onCleanup(() => {
 					window.removeEventListener("beforeunload", handleUnload);
@@ -549,9 +631,8 @@ export default function Watch() {
 											setHoverValue(boundedValue)
 										}}
 										style={{
-											background: `linear-gradient(to right, #f00 0%, #f00 ${
-												(sliderValue() / 540) * 100
-											}%, #ccc ${(sliderValue() / 540) * 100}%, #ccc 100%)`,
+											background: `linear-gradient(to right, #f00 0%, #f00 ${(sliderValue() / 540) * 100
+												}%, #ccc ${(sliderValue() / 540) * 100}%, #ccc 100%)`,
 										}}
 									/>
 									<div class="tooltip" style={{ left: `${(hoverValue() / 540) * 100}%` }}>
