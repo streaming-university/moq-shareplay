@@ -55,7 +55,10 @@ export default function Watch() {
 	if (!params.room && !params.role) {
 		createEffect(() => {
 			if (!socket) {
-				socket = new WebSocket("ws://localhost:8080");
+				const ws_url = new URLSearchParams(location.search).get('ws_server');
+				let endpoint = ws_url || `wss://${location.hostname}:8080`;
+
+				socket = new WebSocket(endpoint);
 
 				socket.onopen = () => {
 					console.log("[WS] Menu socket connected");
@@ -191,7 +194,7 @@ export default function Watch() {
 			clientId = followerId
 			console.log(`Client is FOLLOWER in room: ${roomName}, ID: ${clientId}`)
 		} else {
-			console.error("Invalid follower ID (must be follower1, follower2, ... and follower0 is not allowed)")
+			// console.error("Invalid follower ID (must be follower1, follower2, ... and follower0 is not allowed)")
 		}
 	}
 
@@ -206,7 +209,11 @@ export default function Watch() {
 
 	createEffect(() => {
 		if (!socket && params.room && params.role) {
-			socket = new WebSocket("ws://localhost:8080");
+			const ws_url = new URLSearchParams(location.search).get('ws_server');
+			let endpoint = ws_url || `wss://${location.hostname}:8080`;
+			// console.log(`2: Connecting to ${endpoint}`);
+			// socket = new WebSocket(endpoint);
+			socket = new WebSocket(endpoint);
 
 			socket.onopen = () => {
 				console.log(`[WS] connected ${params.room}, ${params.role}`);
