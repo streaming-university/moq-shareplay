@@ -19,8 +19,11 @@ for (let i = 1; i <= 5; i++) {
 	rooms.set(`room${i}`, new Set());
 }
 const pendingNamespaceUpdate = new Map(); // Map<roomName, boolean>
-
-// Publisher references
+const currentNamespaces = new Map();
+for (let i=1; i<=5; i++)
+{
+	currentNamespaces.set(`room${i}`, `sync-namespace-${Math.floor(100000 + Math.random() * 900000)}`);
+}
 let pub1 = null;
 let pub2 = null;
 let pub3 = null;
@@ -34,7 +37,6 @@ wss.on("connection", (ws) => {
 		const raw = message.toString();
 		console.log("Received message:", raw);
 
-		// Handle simple pub registration
 		switch (raw) {
 			case "pub1": pub1 = ws; console.log("pub1 connected"); return;
 			case "pub2": pub2 = ws; console.log("pub2 connected"); return;
@@ -42,6 +44,81 @@ wss.on("connection", (ws) => {
 			case "pub4": pub4 = ws; console.log("pub4 connected"); return;
 			case "pub5": pub5 = ws; console.log("pub5 connected"); return;
 		}
+
+		try {
+			const data = JSON.parse(raw);
+			if (data.type === "announce-current-namespace" && typeof data.room === "string") {
+			  const newNamespace = currentNamespaces.get(data.room);
+			  if (!newNamespace) {
+				console.warn(`[WS] No namespace found for ${data.room} to reannounce`);
+				return;
+			  }
+
+			  const roomClients = rooms.get(data.room);
+					console.log(`[WS] Connected clients in room '${data.room}':`);
+
+					if (roomClients) {
+						for (const client of roomClients) {
+							const clientInfo = clients.get(client);
+							console.log("→", {
+								readyState: client.readyState,
+								meta: clientInfo?.meta,
+							});
+						}
+					} else {
+						console.log("[WS] No clients found for this room.");
+					}
+					const pubMap = {
+						room1: pub1,
+						room2: pub2,
+						room3: pub3,
+						room4: pub4,
+						room5: pub5,
+					};
+
+					const pub = pubMap[data.room];
+
+					if (pub && pub.readyState === 1) {
+						const pubPayload = {
+							type: "namespace-update",
+							room: data.room,
+							newNamespace,
+						};
+
+						try {
+							const payload = JSON.stringify(pubPayload);
+							console.log(`[WS] Also sending namespace-update to ${data.room} publisher:`, payload);
+							pub.send(payload);
+						} catch (err) {
+							console.error(`[WS] Failed to send namespace-update to ${data.room} publisher:`, err);
+						}
+					}
+					if (roomClients) {
+						for (const client of roomClients) {
+							if (client.readyState === 1) {
+								const namespacePayload = {
+									type: "namespace-update",
+									room: data.room,
+									newNamespace: newNamespace,
+								};
+								console.log("Following will be converted to json", namespacePayload)
+								try {
+									const payload = JSON.stringify(namespacePayload);
+									console.log("[WS] Sending to client:", payload);
+
+									client.send(payload);
+								} catch (err) {
+									console.error("[WS] Failed to stringify or send message:", err);
+									console.log("Payload that failed:", namespacePayload);
+								}
+							}
+						}
+						console.log(`[NAMESPACE UPDATED] Room: ${data.room}, New: ${newNamespace}`);
+					}
+				}
+		  } catch (err) {
+			console.warn("[WS] Failed to process announce-current-namespace request:", err.message);
+		  }
 
 		try {
 			const data = JSON.parse(raw);
@@ -84,6 +161,7 @@ wss.on("connection", (ws) => {
 				return;
 			}
 
+
 			console.log("Pending rooms waiting for leader:", Array.from(pendingNamespaceUpdate.entries()));
 
 			const isValid = typeof data.room === "string" &&
@@ -114,7 +192,7 @@ wss.on("connection", (ws) => {
 					const newNamespace = `sync-namespace-${Math.floor(100000 + Math.random() * 900000)}`;
 					console.log("New namespace, ", newNamespace);
 					pendingNamespaceUpdate.delete(data.room);
-
+					currentNamespaces.set(data.room, newNamespace);
 
 					const roomClients = rooms.get(data.room);
 					console.log(`[WS] Connected clients in room '${data.room}':`);

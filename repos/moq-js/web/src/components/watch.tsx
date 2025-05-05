@@ -287,7 +287,7 @@ export default function Watch() {
 								}
 
 								count++;
-							}, 1000); // 1000 ms = 1 second
+							}, 1000);
 						}
 						else {
 							runLeader()
@@ -345,7 +345,8 @@ export default function Watch() {
 			.catch(setError)
 
 		if (clientId !== 0) {
-			runFollower()
+			await runFollower();
+			await syncTrackListener();
 		}
 	})
 
@@ -413,6 +414,12 @@ export default function Watch() {
 			// Wait for the announce to be acknowledged
 			await announceSend?.ok()
 
+			socket?.send(
+				JSON.stringify({
+				  type: "announce-current-namespace",
+				  room: roomName,
+				})
+			  );
 			console.log(`Sync namespace (${syncNamespace}) successfully announced!`)
 		} catch (err) {
 			if (err instanceof Error && err.message.includes("already announce: sync-namespace")) {
@@ -558,7 +565,7 @@ export default function Watch() {
 
 	const runFollower = async (): Promise<boolean> => {
 		try {
-			return await subscribeToSyncTrack(); // return success flag from actual subscription
+			return await subscribeToSyncTrack();
 		} catch (err) {
 			console.error("Error running client: ", err);
 			return false;
