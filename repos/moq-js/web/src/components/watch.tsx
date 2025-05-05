@@ -436,6 +436,9 @@ export default function Watch() {
 							messageElement.textContent = `[Leader via Sync-track] : ${message}`
 						}
 						chatMessages?.appendChild(messageElement)
+						if (chatMessages) {
+							chatMessages.scrollTop = chatMessages.scrollHeight
+						}
 					}
 				}
 			} catch (err) {
@@ -705,28 +708,29 @@ export default function Watch() {
 				</div>
 
 				{/* CHAT SECTION */}
-				<Show when={showChat()}>
-					<div class="chat-section">
-						<div class="chat-header">Live Media over QUIC Chat</div>
-						<div class="chat-messages">{/* Messages will appear here */}</div>
-						<div class="message-input-container">
-							{clientId === 0 && (
-								<input
-									type="text"
-									class="message-input"
-									placeholder="Send a message..."
-									value={messageInput()}
-									onInput={(e) => setMessageInput(e.currentTarget.value)}
-								/>
-							)}
-							{clientId === 0 && (
-								<button class="send-button" onClick={sendMessage}>
-									Send
-								</button>
-							)}
-						</div>
+				<div
+					class="chat-section"
+					style={{display: showChat() ? 'flex' : 'none'}}
+				>
+					<div class="chat-header">Live Media over QUIC Chat</div>
+					<div class="chat-messages">{/* Messages will appear here */}</div>
+					<div class="message-input-container">
+						{clientId === 0 && (
+							<input
+								type="text"
+								class="message-input"
+								placeholder="Send a message..."
+								value={messageInput()}
+								onInput={(e) => setMessageInput(e.currentTarget.value)}
+							/>
+						)}
+						{clientId === 0 && (
+							<button class="send-button" onClick={sendMessage}>
+								Send
+							</button>
+						)}
 					</div>
-				</Show>
+				</div>
 			</div>
 		</>
 	)
