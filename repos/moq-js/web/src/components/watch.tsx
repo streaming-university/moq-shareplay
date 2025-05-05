@@ -55,9 +55,9 @@ export default function Watch() {
 	if (!params.room && !params.role) {
 		createEffect(() => {
 			if (!socket) {
-				const ws_url = new URLSearchParams(location.search).get('ws_server');
-				let endpoint = ws_url || `wss://${location.hostname}:8080`;
-
+				//const ws_url = new URLSearchParams(location.search).get('ws_server');
+				let endpoint = "wss://shareplay.streaming.university/ws/";
+				console.log(endpoint)
 				socket = new WebSocket(endpoint);
 
 				socket.onopen = () => {
@@ -198,7 +198,7 @@ export default function Watch() {
 		}
 	}
 
-	// ----------- variables for sync functionality ------------
+	// ----------- variables for sync functionality ------------x
 	const syncTrackName = "sync-track"
 	let syncNamespace = `sync-namespace-${roomName}`
 	let trackWriter!: TrackWriter
@@ -209,9 +209,9 @@ export default function Watch() {
 
 	createEffect(() => {
 		if (!socket && params.room && params.role) {
-			const ws_url = new URLSearchParams(location.search).get('ws_server');
-			let endpoint = ws_url || `wss://${location.hostname}:8080`;
-			// console.log(`2: Connecting to ${endpoint}`);
+			//const ws_url = new URLSearchParams(location.search).get('ws_server');
+			let endpoint = "wss://shareplay.streaming.university/ws/";
+			console.log(`2: Connecting to ${endpoint}`);
 			// socket = new WebSocket(endpoint);
 			socket = new WebSocket(endpoint);
 
@@ -594,9 +594,9 @@ export default function Watch() {
 	}
 
 	const goToMainMenu = () => {
-		const newUrl = new URL(window.location.href)
-		newUrl.pathname = "/"
-		newUrl.search = ""
+		const newUrl = new URL("https://moq.streaming.university/?server=shareplay.streaming.university%3A4444")
+		// newUrl.pathname = "/"
+		// newUrl.search = ""
 		console.log(`Redirecting user to: ${newUrl.toString()}`)
 		window.location.href = newUrl.toString()
 	}

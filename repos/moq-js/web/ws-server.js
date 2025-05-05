@@ -1,6 +1,14 @@
 import { WebSocketServer } from "ws";
+import https from "https";
+import fs from "fs";
+import path from "path";
 
-const wss = new WebSocketServer({ port: 8080 });
+const server = https.createServer({
+	key: fs.readFileSync(path.join("/etc/letsencrypt/live/streaming.university", "privkey.pem")),
+	cert: fs.readFileSync(path.join("/etc/letsencrypt/live/streaming.university", "fullchain.pem")),
+});
+
+const wss = new WebSocketServer({ server });
 
 const clients = new Map(); // Map<ws, { lastSeen, meta }>
 const rooms = new Map();   // Map<roomName, Set<ws>>
@@ -93,9 +101,8 @@ wss.on("connection", (ws) => {
 
 				// If a leader joined and we’re waiting to send a new namespace
 				if (data.role === "leader" && pendingNamespaceUpdate.get(data.room)) {
-					console.log("Yeni bir leader detect edildi !!!, namespace degistiriliyor");
 					const newNamespace = `sync-namespace-room1-${Math.floor(100000 + Math.random() * 900000)}`;
-					console.log("Yeni namespace, ", newNamespace);
+					console.log("New namespace, ", newNamespace);
 					pendingNamespaceUpdate.delete(data.room);
 
 
@@ -193,4 +200,6 @@ wss.on("connection", (ws) => {
 });
 
 
-console.log("✅ WebSocket server running at ws://localhost:8080");
+server.listen(8005, () => {
+	console.log("Secure WebSocket server running at port 8005");
+});

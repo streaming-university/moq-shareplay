@@ -1,8 +1,7 @@
 use bytes::{Bytes, BytesMut};
-use log::info;
+
 use std::{env, fs, net, path::PathBuf};
 use url::Url;
-use std::io::Cursor;
 use bincode;
 use anyhow::Context;
 use clap::Parser;
@@ -12,7 +11,6 @@ use mp4::{self, ReadBox, TrackType};
 use moq_native::quic;
 use moq_pub::{Media, SubToSync};
 use moq_transport::{serve, serve::Tracks, session::Publisher};
-use moq_transport::session::Subscriber;
 use moq_transport::serve::{TrackReaderMode, TracksReader};
 use futures_util::StreamExt;
 use futures_util::sink::SinkExt; // Required for `.send()` on split WebSocket
@@ -97,64 +95,77 @@ async fn main() -> anyhow::Result<()> {
 
         // 🔌 WebSocket client: connects to ws://localhost:8080 and listens
         tokio::spawn(async move {
-            let url = Url::parse("ws://localhost:8080").expect("Invalid WebSocket URL");
-            let (ws_stream, _) = connect_async(url).await.expect("WebSocket connection failed");
-            println!("🔗 WebSocket connected.");
+			let url = Url::parse("wss://shareplay.streaming.university/ws/").expect("Invalid WebSocket URL");
 
-            let (mut write, mut read) = ws_stream.split();
+			loop {
+				match connect_async(url.clone()).await {
+					Ok((ws_stream, _)) => {
+						println!("🔗 WebSocket connected.");
+						let (mut write, mut read) = ws_stream.split();
 
-            let pub_name = if cli_name.starts_with("room") {
-				format!("pub{}", &cli_name["room".len()..])
-			} else {
-				"pub1".to_string() // fallback default
-			};
+						let pub_name = if cli_name.starts_with("room") {
+							format!("pub{}", &cli_name["room".len()..])
+						} else {
+							"pub1".to_string()
+						};
 
-			if let Err(e) = write.send(Message::Text(pub_name.clone())).await {
-				eprintln!("❌ Failed to send '{}': {}", pub_name, e);
-			} else {
-				println!("✅ Sent '{}' to WebSocket server.", pub_name);
-			}
+						if let Err(e) = write.send(Message::Text(pub_name.clone())).await {
+							eprintln!("❌ Failed to send '{}': {}", pub_name, e);
+						} else {
+							println!("✅ Sent '{}' to WebSocket server.", pub_name);
+						}
 
-			while let Some(msg) = read.next().await {
-				match msg {
-					Ok(Message::Text(text)) => {
-						if let Ok(json) = serde_json::from_str::<serde_json::Value>(&text) {
-							if json["type"] == "namespace-update" {
-								let new_namespace = json["newNamespace"].as_str().unwrap_or_default();
-								log::info!("🔁 Received namespace-update: {}", new_namespace);
+						while let Some(msg) = read.next().await {
+							match msg {
+								Ok(Message::Text(text)) => {
+									if let Ok(json) = serde_json::from_str::<serde_json::Value>(&text) {
+										if json["type"] == "namespace-update" {
+											let new_namespace = json["newNamespace"].as_str().unwrap_or_default();
+											log::info!("🔁 Received namespace-update: {}", new_namespace);
 
-								let new_tracks = Tracks::new(new_namespace.to_string());
-								match SubToSync::new(&*subscriber, new_tracks).await {
-									Ok(mut new_syncer) => {
-										let tx_clone = sync_value_tx.clone();
+											let new_tracks = Tracks::new(new_namespace.to_string());
+											match SubToSync::new(&*subscriber, new_tracks).await {
+												Ok(mut new_syncer) => {
+													let tx_clone = sync_value_tx.clone();
 
-										if let Some(handle) = current_syncer_task.lock().await.take() {
-											handle.abort();
+													if let Some(handle) = current_syncer_task.lock().await.take() {
+														handle.abort();
+													}
+
+													let handle = tokio::spawn(async move {
+														new_syncer.run_with_a_channel(tx_clone).await
+													});
+
+													*current_syncer_task.lock().await = Some(handle);
+												}
+												Err(e) => {
+													log::error!("❌ Failed to create new syncer: {:?}", e);
+												}
+											}
 										}
-
-										let handle = tokio::spawn(async move {
-											new_syncer.run_with_a_channel(tx_clone).await
-										});
-
-										*current_syncer_task.lock().await = Some(handle);
-									}
-									Err(e) => {
-										log::error!("❌ Failed to create new syncer: {:?}", e);
+									} else {
+										log::info!("📩 WebSocket message: {}", text);
 									}
 								}
+								Ok(_) => {}
+								Err(e) => {
+									log::error!("WebSocket error: {}", e);
+									break; // Hata olursa while döngüsünden çık
+								}
 							}
-						} else {
-							log::info!("📩 WebSocket message: {}", text);
 						}
-                    }
-                    Ok(_) => {}
-                    Err(e) => {
-                        log::error!("WebSocket error: {}", e);
-                        break;
-                    }
-                }
-            }
-        });
+					}
+					Err(e) => {
+						log::error!("WebSocket connection failed: {}", e);
+					}
+				}
+
+				// Buraya düşerse: ya bağlantı kurulamadı ya da bağlantı koptu
+				log::warn!("🔌 Disconnected from WebSocket, retrying in 1 second...");
+				tokio::time::sleep(Duration::from_millis(300)).await;
+			}
+		});
+
     }
 
     // 🟢 Log sync messages from MoQ track

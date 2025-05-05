@@ -22,6 +22,7 @@
 		"@tailwindcss/typography": "^0.5.10",
 		"@types/dom-webcodecs": "^0.1.8",
 		"astro": "^5.6.1",
+		"https": "^1.0.0",
 		"solid-js": "^1.4.3",
 		"tailwindcss": "^3.0.24",
 		"vite-plugin-cross-origin-isolation": "^0.1.6",
