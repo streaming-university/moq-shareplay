@@ -56,7 +56,8 @@ export default function Watch() {
 		createEffect(() => {
 			if (!socket) {
 				//const ws_url = new URLSearchParams(location.search).get('ws_server');
-				let endpoint = "wss://shareplay.streaming.university/ws/";
+				// let endpoint = "wss://shareplay.streaming.university/ws/";
+				let endpoint = "ws://localhost:8005";
 				console.log(endpoint)
 				socket = new WebSocket(endpoint);
 
@@ -210,7 +211,8 @@ export default function Watch() {
 	createEffect(() => {
 		if (!socket && params.room && params.role) {
 			//const ws_url = new URLSearchParams(location.search).get('ws_server');
-			let endpoint = "wss://shareplay.streaming.university/ws/";
+			// let endpoint = "wss://shareplay.streaming.university/ws/";
+			let endpoint = "ws://localhost:8005";
 			console.log(`2: Connecting to ${endpoint}`);
 			// socket = new WebSocket(endpoint);
 			socket = new WebSocket(endpoint);

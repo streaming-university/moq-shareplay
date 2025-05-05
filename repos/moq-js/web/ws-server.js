@@ -3,12 +3,12 @@ import https from "https";
 import fs from "fs";
 import path from "path";
 
-const server = https.createServer({
-	key: fs.readFileSync(path.join("/etc/letsencrypt/live/streaming.university", "privkey.pem")),
-	cert: fs.readFileSync(path.join("/etc/letsencrypt/live/streaming.university", "fullchain.pem")),
-});
+// const server = https.createServer({
+// 	key: fs.readFileSync(path.join("/etc/letsencrypt/live/streaming.university", "privkey.pem")),
+// 	cert: fs.readFileSync(path.join("/etc/letsencrypt/live/streaming.university", "fullchain.pem")),
+// });
 
-const wss = new WebSocketServer({ server });
+const wss = new WebSocketServer({ port: 8005 });
 
 const clients = new Map(); // Map<ws, { lastSeen, meta }>
 const rooms = new Map();   // Map<roomName, Set<ws>>
@@ -200,6 +200,6 @@ wss.on("connection", (ws) => {
 });
 
 
-server.listen(8005, () => {
-	console.log("Secure WebSocket server running at port 8005");
-});
+// server.listen(8005, () => {
+// 	console.log("Secure WebSocket server running at port 8005");
+// });

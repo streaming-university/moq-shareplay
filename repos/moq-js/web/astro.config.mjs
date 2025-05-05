@@ -12,24 +12,26 @@ export default defineConfig({
 		mdx(),
 		solidJs(),
 		tailwind({
+			// Disable injecting a basic `base.css` import on every page.
 			applyBaseStyles: false,
 		}),
 	],
+	// Renders any non-static pages using node
 	adapter: nodejs({
 		mode: "standalone",
 	}),
+	// Default to static rendering, but allow server rendering per-page
 	output: 'server',
 	vite: {
 		server: {
+			// HTTPS is required for SharedArrayBuffer
 			https: true,
-			hmr: {
-				clientPort: 443,
-				protocol: 'wss',
-				host: 'shareplay.streaming.university',
-			},
 		},
 		plugins: [
+			// Generates a self-signed certificate using mkcert
 			mkcert(),
+
+			// Required for SharedArrayBuffer
 			crossOriginIsolation(),
 		],
 		resolve: {
@@ -38,5 +40,6 @@ export default defineConfig({
 			},
 		},
 	},
+	// Don't add trailing slashes to paths
 	trailingSlash: "never",
 })

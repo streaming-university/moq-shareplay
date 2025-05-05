@@ -7,8 +7,6 @@
 		"web"
 	],
 	"scripts": {
-		"web": "npm run dev --workspace web",
-		"ws": "node web/ws-server.js",
 		"dev": "concurrently \"node web/ws-server.js\" \"npm run dev --workspace web\"",
 		"build": "npm run build --workspaces",
 		"lint": "npm run lint --workspaces",

@@ -95,7 +95,8 @@ async fn main() -> anyhow::Result<()> {
 
         // 🔌 WebSocket client: connects to ws://localhost:8080 and listens
         tokio::spawn(async move {
-			let url = Url::parse("wss://shareplay.streaming.university/ws/").expect("Invalid WebSocket URL");
+			// let url = Url::parse("wss://shareplay.streaming.university/ws/").expect("Invalid WebSocket URL");
+			let url = Url::parse("ws://localhost:8005").expect("Invalid WebSocket URL");
 
 			loop {
 				match connect_async(url.clone()).await {
