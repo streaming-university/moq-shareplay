@@ -5,6 +5,7 @@ import { TrackReader, TrackWriter, type TrackChunk } from "../../../lib/transpor
 import { SubscribeSend } from "../../../lib/transport/subscriber"
 import "./watch.css"
 import "./menu.css"
+
 export default function Watch() {
 	// Use query params to allow overriding environment variables.
 	const urlSearchParams = new URLSearchParams(window.location.search)
@@ -19,9 +20,9 @@ export default function Watch() {
 	const [showCatalog, setShowCatalog] = createSignal(false)
 	const [isPaused, setIsPaused] = createSignal(false)
 	const [showChat, setShowChat] = createSignal(true)
-	const [isAnnounced, setIsAnnounced] = createSignal(false)
-	const [isTrackWriterCreated, setIsTrackWriterCreated] = createSignal(false)
-	const [isSubscribed, setIsSubscribed] = createSignal(false)
+
+
+
 	const [volume, setVolume] = createSignal(50)
 	const [reader, setReader] = createSignal<TrackReader | undefined>()
 	const [messageInput, setMessageInput] = createSignal("")
@@ -269,7 +270,24 @@ export default function Watch() {
 						console.log(`[WS] Updating namespace to ${msg.newNamespace}`);
 						syncNamespace = msg.newNamespace;
 						if (clientId !== 0) {
-							runFollower()
+							let count = 0;
+							const interval = setInterval(async () => {
+								if (count >= 3) {
+									clearInterval(interval);
+									await syncTrackListener();
+									return;
+								}
+
+								try {
+									console.log(`Now will try to subscribe with the new namespace: ${syncNamespace}`);
+									let followerSubscribed = await runFollower();
+									console.log(`Success status of subscribe: ${followerSubscribed}`);
+								} catch (err) {
+									console.error("Error in interval call:", err);
+								}
+
+								count++;
+							}, 1000); // 1000 ms = 1 second
 						}
 						else {
 							runLeader()
@@ -378,7 +396,6 @@ export default function Watch() {
 				console.error("Error creating TrackWriter: ", err)
 			}
 		}
-		setIsTrackWriterCreated(true)
 	}
 
 	const announceSyncNamespace = async () => {
@@ -404,7 +421,6 @@ export default function Watch() {
 				console.error("Error announcing sync namespace:", err)
 			}
 		}
-		setIsAnnounced(true)
 	}
 
 	const syncTrackListener = async () => {
@@ -447,22 +463,24 @@ export default function Watch() {
 		}
 	}
 
-	const subscribeToSyncTrack = async () => {
+	const subscribeToSyncTrack = async (): Promise<boolean> => {
+		const connection = usePlayer()?.getConnection();
 
-		// Get the Connection object
-		const connection = usePlayer()?.getConnection()
+		if (!connection) {
+			console.error("No connection available in usePlayer()");
+			return false;
+		}
 
-		// Subscribe to our own track (since we don't have an external subscriber)
-		const sub = await connection?.subscribe(syncNamespace, syncTrackName)
+		const sub = await connection.subscribe(syncNamespace, syncTrackName);
 
 		if (!sub) {
-			console.error("Failed to subscribe")
-			return
+			console.error("Failed to subscribe (returned undefined)");
+			return false;
 		}
-		subscriber = sub
-		setIsSubscribed(true)
-		syncTrackListener()
-	}
+
+		subscriber = sub;
+		return true;
+	};
 
 	const sendFrameMessage = async (frame: string) => {
 		const payload = new TextEncoder().encode(frame)
@@ -532,19 +550,20 @@ export default function Watch() {
 			await announceSyncNamespace()
 			await createTrackWriter()
 			await subscribeToSyncTrack()
+			await syncTrackListener();
 		} catch (err) {
 			console.error("Error running client: ", err)
 		}
 	}
 
-	const runFollower = async () => {
+	const runFollower = async (): Promise<boolean> => {
 		try {
-			await subscribeToSyncTrack()
+			return await subscribeToSyncTrack(); // return success flag from actual subscription
 		} catch (err) {
-			console.error("Error running client: ", err)
+			console.error("Error running client: ", err);
+			return false;
 		}
-	}
-
+	};
 	const changeVolume = (event: Event) => {
 		const volumeValue = Number((event.target as HTMLInputElement).value)
 		setVolume(volumeValue)

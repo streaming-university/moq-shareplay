@@ -99,9 +99,19 @@ wss.on("connection", (ws) => {
 				}
 				rooms.get(data.room).add(ws);
 
+				if (data.role === "leader") {
+					const roomSet = rooms.get(data.room)
+					const hasLeader = [...roomSet].some(ws => clients.get(ws)?.meta?.role === "leader")
+
+					if (!hasLeader) {
+						console.log(`[WS] First-time leader for ${data.room}, scheduling namespace update.`);
+						pendingNamespaceUpdate.set(data.room, true);
+					}
+				}
+
 				// If a leader joined and we’re waiting to send a new namespace
 				if (data.role === "leader" && pendingNamespaceUpdate.get(data.room)) {
-					const newNamespace = `sync-namespace-room1-${Math.floor(100000 + Math.random() * 900000)}`;
+					const newNamespace = `sync-namespace-${Math.floor(100000 + Math.random() * 900000)}`;
 					console.log("New namespace, ", newNamespace);
 					pendingNamespaceUpdate.delete(data.room);
 
