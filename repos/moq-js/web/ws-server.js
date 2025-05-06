@@ -177,6 +177,19 @@ wss.on("connection", (ws) => {
 				}
 				rooms.get(data.room).add(ws);
 
+				if (data.role !== "leader") {
+					const newNamespace = currentNamespaces.get(data.room);
+					if (newNamespace && ws.readyState === 1) {
+						const payload = JSON.stringify({
+							type: "namespace-update",
+							room: data.room,
+							newNamespace,
+						});
+						console.log(`[WS] Sending current namespace to new non-leader client:`, payload);
+						ws.send(payload);
+					}
+				}
+
 				if (data.role === "leader") {
 					const roomSet = rooms.get(data.room)
 					const hasLeader = [...roomSet].some(ws => clients.get(ws)?.meta?.role === "leader")
